@@ -1,3 +1,7 @@
+from .drive_utils import upload_media_to_drive
+from .uid_utils import generate_uid
+from .sheets_utils import log_task_to_sheet  # Assume this function exists or will be created
+
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from services.telegram import handle_telegram_update, handle_callback
