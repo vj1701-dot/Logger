@@ -2,4 +2,6 @@ import random
 import string
 
 def generate_uid():
-    return ''.join(random.choices(string.ascii_uppercase, k=2)) + str(random.randint(1000, 9999))
+    prefix = ''.join(random.choices(string.ascii_uppercase, k=2))
+    suffix = ''.join(random.choices(string.digits, k=4))
+    return f"{prefix}{suffix}"
