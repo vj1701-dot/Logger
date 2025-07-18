@@ -1,9 +1,8 @@
 fastapi
 uvicorn
-python-telegram-bot[fast]
+python-telegram-bot[asyncio]
 flask
 google-api-python-client
 google-auth
-google-auth-oauthlib
-jinja2
+google-cloud-secret-manager
 gunicorn
