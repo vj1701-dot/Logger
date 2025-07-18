@@ -1,49 +1,63 @@
 import os
-import datetime
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
+from google.cloud import secretmanager
+import json
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SHEET_ID = os.getenv("SPREADSHEET_ID")
-SHEET_NAME = "Sheet1"
 
-def now():
-    return datetime.datetime.now().strftime("%b %d, %Y %I:%M %p")
+def access_secret(secret_id):
+    client = secretmanager.SecretManagerServiceClient()
+    project_id = os.environ["GCP_PROJECT_ID"]
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
 
-def get_service():
-    credentials = service_account.Credentials.from_service_account_file(
-        "credentials.json", scopes=SCOPES)
-    return build("sheets", "v4", credentials=credentials)
+def get_sheet():
+    creds_json = access_secret("GOOGLE_SERVICE_ACCOUNT_JSON")
+    creds_dict = json.loads(creds_json)
+    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    sheet_id = access_secret("GOOGLE_SHEET_ID")
+    return client.open_by_key(sheet_id).sheet1
 
-def append_to_sheet(first, last, username, message, media_url):
-    service = get_service()
-    row = [[now(), username, f"{first} {last}", message, media_url, "New", "", ""]]
-    service.spreadsheets().values().append(
-        spreadsheetId=SHEET_ID,
-        range=f"{SHEET_NAME}!A1",
-        valueInputOption="RAW",
-        body={"values": row}
-    ).execute()
+def log_task_to_sheet(uid, username, submitted_by, message, media_url):
+    sheet = get_sheet()
+    now = datetime.utcnow().isoformat()
+    row = [
+        now,         # Timestamp
+        uid,
+        username,
+        submitted_by,
+        message,
+        media_url,
+        "New",       # Status
+        "",          # Updated By
+        "",          # Updated Time
+        ""           # Assigned To
+    ]
+    sheet.append_row(row)
 
-def update_task_status(username, message, status, updated_by):
-    service = get_service()
-    sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SHEET_ID, range=SHEET_NAME).execute()
-    rows = result.get("values", [])
 
-    for i, row in enumerate(rows):
-        if len(row) >= 4 and row[1] == username and row[3] == message:
-            row_index = i + 1
-            sheet.values().update(
-                spreadsheetId=SHEET_ID,
-                range=f"{SHEET_NAME}!F{row_index}:H{row_index}",
-                valueInputOption="RAW",
-                body={"values": [[status, updated_by, now()]]}
-            ).execute()
-            return
+def update_task_status(uid, new_status, updated_by):
+    sheet = get_sheet()
+    now = datetime.utcnow().isoformat()
+    records = sheet.get_all_records()
+    for i, row in enumerate(records, start=2):
+        if row["UID"] == uid:
+            sheet.update(f"G{i}", new_status)
+            sheet.update(f"H{i}", updated_by)
+            sheet.update(f"I{i}", now)
+            break
 
-def fetch_all_tasks():
-    service = get_service()
-    sheet = service.spreadsheets()
-    result = sheet.values().get(spreadsheetId=SHEET_ID, range=SHEET_NAME).execute()
-    return result.get("values", [])[1:]
+def update_task_assignee(uid, assigned_to, updated_by):
+    sheet = get_sheet()
+    now = datetime.utcnow().isoformat()
+    records = sheet.get_all_records()
+    for i, row in enumerate(records, start=2):
+        if row["UID"] == uid:
+            sheet.update(f"J{i}", assigned_to)
+            sheet.update(f"H{i}", updated_by)
+            sheet.update(f"I{i}", now)
+            break

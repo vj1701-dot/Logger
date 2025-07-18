@@ -30,6 +30,30 @@
   </style>
 </head>
 <body>
+<p>
+You can view your own tasks by visiting:
+<code>/my?user=YourUsername</code>
+(e.g., <a href="/my?user=JohnDoe">My Tasks</a>)
+</p>
+
+
+<form method="get">
+  <label for="status">Filter by status:</label>
+  <select name="status" id="status" onchange="this.form.submit()">
+    <option value="">All</option>
+    <option value="New">New</option>
+    <option value="In Progress">In Progress</option>
+    <option value="Done">Done</option>
+  </select>
+
+<label for="sort">Sort by:</label>
+<select name="sort" id="sort" onchange="this.form.submit()">
+  <option value="timestamp">Timestamp</option>
+  <option value="status">Status</option>
+</select>
+
+</form>
+
   <h1>BAPS SJ Maintenance Dashboard</h1>
   <div class="filters">
     <select id="statusFilter" onchange="applyFilters()">
