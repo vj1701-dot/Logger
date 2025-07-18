@@ -1,63 +1,37 @@
 import os
-import gspread
-from google.oauth2.service_account import Credentials
-from datetime import datetime
-from google.cloud import secretmanager
 import json
-
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-
-def access_secret(secret_id):
-    client = secretmanager.SecretManagerServiceClient()
-    project_id = os.environ["GCP_PROJECT_ID"]
-    name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 def get_sheet():
-    creds_json = access_secret("GOOGLE_SERVICE_ACCOUNT_JSON")
-    creds_dict = json.loads(creds_json)
-    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-    client = gspread.authorize(creds)
-    sheet_id = access_secret("GOOGLE_SHEET_ID")
-    return client.open_by_key(sheet_id).sheet1
+    creds = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+    credentials = service_account.Credentials.from_service_account_info(creds, scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    sheet = build("sheets", "v4", credentials=credentials).spreadsheets().values()
+    return sheet, os.environ["GOOGLE_SHEET_ID"]
 
-def log_task_to_sheet(uid, username, submitted_by, message, media_url):
-    sheet = get_sheet()
+def log_task(uid, user, message, media_url):
+    sheet, sid = get_sheet()
     now = datetime.utcnow().isoformat()
-    row = [
-        now,         # Timestamp
-        uid,
-        username,
-        submitted_by,
-        message,
-        media_url,
-        "New",       # Status
-        "",          # Updated By
-        "",          # Updated Time
-        ""           # Assigned To
-    ]
-    sheet.append_row(row)
+    row = [[now, uid, user, user, message, media_url, "New", "", "", ""]]
+    sheet.append(spreadsheetId=sid, range="Sheet1", valueInputOption="RAW", body={"values": row}).execute()
 
-
-def update_task_status(uid, new_status, updated_by):
-    sheet = get_sheet()
-    now = datetime.utcnow().isoformat()
-    records = sheet.get_all_records()
-    for i, row in enumerate(records, start=2):
-        if row["UID"] == uid:
-            sheet.update(f"G{i}", new_status)
-            sheet.update(f"H{i}", updated_by)
-            sheet.update(f"I{i}", now)
+def update_status(uid, status, updated_by):
+    sheet, sid = get_sheet()
+    values = sheet.get(spreadsheetId=sid, range="Sheet1").execute().get("values", [])
+    for i, row in enumerate(values):
+        if len(row) > 1 and row[1] == uid:
+            sheet.update(spreadsheetId=sid, range=f"G{i+1}", valueInputOption="RAW", body={"values": [[status]]}).execute()
+            sheet.update(spreadsheetId=sid, range=f"H{i+1}", valueInputOption="RAW", body={"values": [[updated_by]]}).execute()
+            sheet.update(spreadsheetId=sid, range=f"I{i+1}", valueInputOption="RAW", body={"values": [[datetime.utcnow().isoformat()]]}).execute()
             break
 
-def update_task_assignee(uid, assigned_to, updated_by):
-    sheet = get_sheet()
-    now = datetime.utcnow().isoformat()
-    records = sheet.get_all_records()
-    for i, row in enumerate(records, start=2):
-        if row["UID"] == uid:
-            sheet.update(f"J{i}", assigned_to)
-            sheet.update(f"H{i}", updated_by)
-            sheet.update(f"I{i}", now)
+def assign_task(uid, assignee, updated_by):
+    sheet, sid = get_sheet()
+    values = sheet.get(spreadsheetId=sid, range="Sheet1").execute().get("values", [])
+    for i, row in enumerate(values):
+        if len(row) > 1 and row[1] == uid:
+            sheet.update(spreadsheetId=sid, range=f"J{i+1}", valueInputOption="RAW", body={"values": [[assignee]]}).execute()
+            sheet.update(spreadsheetId=sid, range=f"H{i+1}", valueInputOption="RAW", body={"values": [[updated_by]]}).execute()
+            sheet.update(spreadsheetId=sid, range=f"I{i+1}", valueInputOption="RAW", body={"values": [[datetime.utcnow().isoformat()]]}).execute()
             break

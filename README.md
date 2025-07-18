@@ -1,40 +1,46 @@
+# Telegram Task Logger Bot with Dashboard
 
+This project is a full-stack Telegram bot + web dashboard that allows users to submit tasks with media and messages. Admins can view, assign, and update tasks via the dashboard or Telegram inline buttons.
 
-## 🚀 Deploying to Google Cloud Run
+## 🧩 Features
 
-### Enable Required APIs:
-```
-gcloud services enable run.googleapis.com secretmanager.googleapis.com sheets.googleapis.com drive.googleapis.com
-```
+- Telegram bot with support for text, photo, video, audio
+- Logs tasks to Google Sheets
+- Uploads media to Google Drive
+- Dashboard with filtering, sorting, and live updates
+- Inline status controls for Admins
+- Secret Manager support for all keys
 
-### Store Secrets in Google Secret Manager:
-```
-gcloud secrets create TELEGRAM_BOT_TOKEN --data-file=- <<< "your_telegram_bot_token"
-gcloud secrets create GOOGLE_SHEET_ID --data-file=- <<< "your_google_sheet_id"
-gcloud secrets create GOOGLE_DRIVE_FOLDER_ID --data-file=- <<< "your_drive_folder_id"
-gcloud secrets create DASHBOARD_USER --data-file=- <<< "admin"
-gcloud secrets create DASHBOARD_PASS --data-file=- <<< "password"
-gcloud secrets create GOOGLE_SERVICE_ACCOUNT_JSON --data-file=path/to/service_account.json
-```
+## 🛠 Setup
 
-### Deploy Bot Service:
-```
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/telegram-bot --file Dockerfile.bot
-gcloud run deploy telegram-bot \
-  --image gcr.io/YOUR_PROJECT_ID/telegram-bot \
-  --region us-central1 \
-  --platform managed \
-  --set-secrets TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_DRIVE_FOLDER_ID=GOOGLE_DRIVE_FOLDER_ID:latest,GOOGLE_SERVICE_ACCOUNT_JSON=GOOGLE_SERVICE_ACCOUNT_JSON:latest \
-  --allow-unauthenticated
-```
+1. Enable these APIs in Google Cloud:
+   - Secret Manager
+   - Cloud Run
+   - Cloud Build
+   - Google Drive
+   - Google Sheets
 
-### Deploy Dashboard Service:
-```
-gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/telegram-dashboard --file Dockerfile.dashboard
-gcloud run deploy telegram-dashboard \
-  --image gcr.io/YOUR_PROJECT_ID/telegram-dashboard \
-  --region us-central1 \
-  --platform managed \
-  --set-secrets DASHBOARD_USER=DASHBOARD_USER:latest,DASHBOARD_PASS=DASHBOARD_PASS:latest,GOOGLE_SHEET_ID=GOOGLE_SHEET_ID:latest,GOOGLE_SERVICE_ACCOUNT_JSON=GOOGLE_SERVICE_ACCOUNT_JSON:latest \
-  --allow-unauthenticated
-```
+2. Add secrets to Secret Manager:
+   - TELEGRAM_TOKEN
+   - GOOGLE_DRIVE_FOLDER_ID
+   - GOOGLE_SHEET_ID
+   - GOOGLE_SERVICE_ACCOUNT_JSON
+   - ADMIN_IDS
+   - DASHBOARD_PASS
+   - DASHBOARD_URL (optional)
+
+3. Push to GitHub. Set up the following GitHub secrets:
+   - GCP_PROJECT
+   - GCP_REGION
+   - GCP_CREDENTIALS (service account key)
+
+4. The GitHub Actions workflow auto-deploys both:
+   - `/webhook` endpoint for bot
+   - `/dashboard?password=...` view for admins
+
+## 📁 Structure
+
+- `bot/`: Telegram logic + webhook
+- `dashboard/`: Web dashboard with password auth
+- `Dockerfile.bot`: Deploys FastAPI bot
+- `Dockerfile.dashboard`: Deploys Flask dashboard

@@ -1,6 +1,22 @@
 import os
+import io
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import json
 
-def upload_media_to_drive(file_path, filename):
-    # TODO: Implement upload logic using Google Drive API
-    # Return the public URL to the file
-    return f"https://drive.google.com/your_file_id"
+def upload_to_drive(file, filename):
+    creds = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+    credentials = service_account.Credentials.from_service_account_info(creds, scopes=["https://www.googleapis.com/auth/drive"])
+    drive = build("drive", "v3", credentials=credentials)
+
+    bio = io.BytesIO()
+    await file.download_to_memory(out=bio)
+    media = MediaIoBaseUpload(bio, mimetype=file.mime_type)
+
+    metadata = {"name": filename, "parents": [os.environ["GOOGLE_DRIVE_FOLDER_ID"]]}
+    uploaded = drive.files().create(body=metadata, media_body=media, fields="id").execute()
+
+    drive.permissions().create(fileId=uploaded["id"], body={"role": "reader", "type": "anyone"}).execute()
+
+    return f"https://drive.google.com/file/d/{uploaded['id']}/view"
