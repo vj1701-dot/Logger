@@ -1,11 +1,11 @@
 import os
 import io
+import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-import json
 
-def upload_to_drive(file, filename):
+async def upload_to_drive(file, filename):
     creds = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
     credentials = service_account.Credentials.from_service_account_info(creds, scopes=["https://www.googleapis.com/auth/drive"])
     drive = build("drive", "v3", credentials=credentials)

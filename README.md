@@ -1,46 +1,38 @@
-# Telegram Task Logger Bot with Dashboard
+# Telegram Task Logger Bot
 
-This project is a full-stack Telegram bot + web dashboard that allows users to submit tasks with media and messages. Admins can view, assign, and update tasks via the dashboard or Telegram inline buttons.
+This bot lets users log tasks via Telegram with optional media. Tasks are saved to Google Sheets and media to Google Drive. A web dashboard allows admins to view, filter, and update task statuses.
 
-## 🧩 Features
+## 🔧 Features
 
-- Telegram bot with support for text, photo, video, audio
-- Logs tasks to Google Sheets
-- Uploads media to Google Drive
-- Dashboard with filtering, sorting, and live updates
-- Inline status controls for Admins
-- Secret Manager support for all keys
+- Telegram bot with media + message handling
+- Google Drive uploads
+- Google Sheet task logging
+- Inline status updates via buttons
+- Admin commands `/assign`, `/status`, `/dashboard`
+- FastAPI webhook & Flask dashboard
 
-## 🛠 Setup
+## 🛠 Secrets to add (via Google Secret Manager)
 
-1. Enable these APIs in Google Cloud:
-   - Secret Manager
-   - Cloud Run
-   - Cloud Build
-   - Google Drive
-   - Google Sheets
+- TELEGRAM_BOT_TOKEN
+- GOOGLE_DRIVE_FOLDER_ID
+- GOOGLE_SHEET_ID
+- GOOGLE_SERVICE_ACCOUNT_JSON
+- ADMIN_IDS
+- DASHBOARD_PASS
+- WEBHOOK_URL (optional)
 
-2. Add secrets to Secret Manager:
-   - TELEGRAM_TOKEN
-   - GOOGLE_DRIVE_FOLDER_ID
-   - GOOGLE_SHEET_ID
-   - GOOGLE_SERVICE_ACCOUNT_JSON
-   - ADMIN_IDS
-   - DASHBOARD_PASS
-   - DASHBOARD_URL (optional)
+## 🚀 Deployment (2 options)
 
-3. Push to GitHub. Set up the following GitHub secrets:
-   - GCP_PROJECT
-   - GCP_REGION
-   - GCP_CREDENTIALS (service account key)
+### ✅ GitHub Actions
 
-4. The GitHub Actions workflow auto-deploys both:
-   - `/webhook` endpoint for bot
-   - `/dashboard?password=...` view for admins
+- Requires `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_CREDENTIALS` secrets in GitHub
+- Push to `main` triggers build & deploy
 
-## 📁 Structure
+### ✅ Google Cloud Build
 
-- `bot/`: Telegram logic + webhook
-- `dashboard/`: Web dashboard with password auth
-- `Dockerfile.bot`: Deploys FastAPI bot
-- `Dockerfile.dashboard`: Deploys Flask dashboard
+See `cloudbuild.yaml` if deploying manually or from Cloud Console
+
+---
+
+Dashboard: `/dashboard?password=your_password`  
+Bot webhook: `/webhook`
