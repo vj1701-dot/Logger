@@ -1,25 +1,25 @@
+import os
 from fastapi import FastAPI, Request
-import logging
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.wsgi import WSGIMiddleware
 from telegram import Update
 from telegram.ext import Application
+from dashboard.app import flask_app
 from bot.handlers import register_handlers
-import os
 
-app = FastAPI()
-
-logging.basicConfig(level=logging.INFO)
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 register_handlers(application)
 
-@app.post("/webhook")
+fastapi_app = FastAPI()
+fastapi_app.mount("/dashboard", WSGIMiddleware(flask_app))
+
+@fastapi_app.post("/webhook")
 async def webhook(req: Request):
-    data = await req.json()
-    update = Update.de_json(data, application.bot)
+    update = Update.de_json(await req.json(), application.bot)
     await application.process_update(update)
     return {"ok": True}
 
-
-@app.get("/")
+@fastapi_app.get("/")
 def root():
     return {"status": "ok"}

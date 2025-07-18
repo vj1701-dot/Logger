@@ -1,5 +1,32 @@
 <!DOCTYPE html>
 <html>
-<head><title>Dashboard</title></head>
-<body><h1>Task Dashboard</h1></body>
+<head>
+  <title>Dashboard</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    .task { border: 1px solid #ddd; padding: 1em; margin: 1em 0; border-radius: 8px; }
+    .status-New { background: #eef; }
+    .status-In\ Progress { background: #ffe; }
+    .status-Done { background: #efe; }
+    .status-Delete { background: #fdd; }
+  </style>
+</head>
+<body>
+  <h1>Task Dashboard</h1>
+  <form method="get">
+    <input name="filter" placeholder="Filter by status or assignee">
+    <input type="submit" value="Apply">
+  </form>
+  {% for t in tasks %}
+  <div class="task status-{{ t[6]|default('New') }}">
+    <strong>UID:</strong> {{ t[1] }} <br>
+    <strong>User:</strong> {{ t[2] }} <br>
+    <strong>Message:</strong> {{ t[4] }} <br>
+    {% if t[5] %}<a href="{{ t[5] }}" target="_blank">📎 View Media</a><br>{% endif %}
+    <strong>Status:</strong> {{ t[6] }} <br>
+    <strong>Assigned To:</strong> {{ t[9] }} <br>
+    <strong>Updated By:</strong> {{ t[7] }} at {{ t[8] }}
+  </div>
+  {% endfor %}
+</body>
 </html>

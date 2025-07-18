@@ -1,38 +1,19 @@
-# Telegram Task Logger Bot
+# Unified Telegram Bot + Dashboard (Single Cloud Run Service)
 
-This bot lets users log tasks via Telegram with optional media. Tasks are saved to Google Sheets and media to Google Drive. A web dashboard allows admins to view, filter, and update task statuses.
+This app runs both:
+- A Telegram bot at `/webhook`
+- A Flask dashboard at `/dashboard`
 
-## 🔧 Features
+## Deployment
 
-- Telegram bot with media + message handling
-- Google Drive uploads
-- Google Sheet task logging
-- Inline status updates via buttons
-- Admin commands `/assign`, `/status`, `/dashboard`
-- FastAPI webhook & Flask dashboard
+- Deploy via Cloud Run using Dockerfile
+- Inject these secrets via Secret Manager or env:
+  - TELEGRAM_BOT_TOKEN
+  - DASHBOARD_PASS
+  - ADMIN_IDS
+  - DASHBOARD_URL (optional)
 
-## 🛠 Secrets to add (via Google Secret Manager)
+## Usage
 
-- TELEGRAM_BOT_TOKEN
-- GOOGLE_DRIVE_FOLDER_ID
-- GOOGLE_SHEET_ID
-- GOOGLE_SERVICE_ACCOUNT_JSON
-- ADMIN_IDS
-- DASHBOARD_PASS
-- WEBHOOK_URL (optional)
-
-## 🚀 Deployment (2 options)
-
-### ✅ GitHub Actions
-
-- Requires `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_CREDENTIALS` secrets in GitHub
-- Push to `main` triggers build & deploy
-
-### ✅ Google Cloud Build
-
-See `cloudbuild.yaml` if deploying manually or from Cloud Console
-
----
-
-Dashboard: `/dashboard?password=your_password`  
-Bot webhook: `/webhook`
+- POST Telegram updates to `/webhook`
+- Access dashboard at `/dashboard?password=...`

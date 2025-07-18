@@ -16,7 +16,6 @@ async def upload_to_drive(file, filename):
 
     metadata = {"name": filename, "parents": [os.environ["GOOGLE_DRIVE_FOLDER_ID"]]}
     uploaded = drive.files().create(body=metadata, media_body=media, fields="id").execute()
-
     drive.permissions().create(fileId=uploaded["id"], body={"role": "reader", "type": "anyone"}).execute()
 
     return f"https://drive.google.com/file/d/{uploaded['id']}/view"
