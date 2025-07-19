@@ -3,12 +3,11 @@ import json
 from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from bot.config import GOOGLE_CREDENTIALS, GOOGLE_SHEET_ID
 
 def get_sheet():
-    creds = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
-    credentials = service_account.Credentials.from_service_account_info(creds, scopes=["https://www.googleapis.com/auth/spreadsheets"])
-    sheet = build("sheets", "v4", credentials=credentials).spreadsheets().values()
-    return sheet, os.environ["GOOGLE_SHEET_ID"]
+    sheets_service = build('sheets', 'v4', credentials=GOOGLE_CREDENTIALS)
+    return sheets_service.spreadsheets().values(), GOOGLE_SHEET_ID
 
 def log_task(uid, user, message, media_url):
     sheet, sid = get_sheet()

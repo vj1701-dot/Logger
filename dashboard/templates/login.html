@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard Login</title>
+  <style>
+    body { font-family: sans-serif; padding: 2em; }
+    form { max-width: 300px; margin: auto; }
+    input { width: 100%; margin: 0.5em 0; padding: 0.5em; }
+  </style>
+</head>
+<body>
+  <h2>Dashboard Login</h2>
+  {% if error %}<div style="color:red">{{ error }}</div>{% endif %}
+  <form method="post">
+    <input type="password" name="password" placeholder="Dashboard Password" required>
+    <input type="submit" value="Login">
+  </form>
+</body>
+</html> 

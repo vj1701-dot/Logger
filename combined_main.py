@@ -6,9 +6,9 @@ from telegram import Update
 from telegram.ext import Application
 from dashboard.app import flask_app
 from bot.handlers import register_handlers
+from bot.config import TELEGRAM_BOT_TOKEN
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-application = Application.builder().token(TELEGRAM_TOKEN).build()
+application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 register_handlers(application)
 
 app = FastAPI()
