@@ -55,16 +55,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path = None
 
     try:
-        if msg.photo:
-            file = await msg.photo[-1].get_file()
+    if msg.photo:
+        file = await msg.photo[-1].get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.jpg")
             media_url = upload_file_to_drive(file_path, f"{uid}.jpg", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
-        elif msg.video:
-            file = await msg.video.get_file()
+    elif msg.video:
+        file = await msg.video.get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.mp4")
             media_url = upload_file_to_drive(file_path, f"{uid}.mp4", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
-        elif msg.audio:
-            file = await msg.audio.get_file()
+    elif msg.audio:
+        file = await msg.audio.get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.mp3")
             media_url = upload_file_to_drive(file_path, f"{uid}.mp3", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
     except Exception as e:
