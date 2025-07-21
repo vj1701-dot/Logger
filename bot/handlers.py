@@ -8,6 +8,9 @@ from bot.config import (
 )
 import datetime
 import os
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def log_task(uid, username, submitted_by, message, media_url):
@@ -55,26 +58,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path = None
 
     try:
-    if msg.photo:
-        file = await msg.photo[-1].get_file()
+        logger.info(f"Received message from {submitted_by} ({user})")
+
+        if msg.photo:
+            file = await msg.photo[-1].get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.jpg")
             media_url = upload_file_to_drive(file_path, f"{uid}.jpg", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
-    elif msg.video:
-        file = await msg.video.get_file()
+        elif msg.video:
+            file = await msg.video.get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.mp4")
             media_url = upload_file_to_drive(file_path, f"{uid}.mp4", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
-    elif msg.audio:
-        file = await msg.audio.get_file()
+        elif msg.audio:
+            file = await msg.audio.get_file()
             file_path = await file.download_to_drive(f"/tmp/{uid}.mp3")
             media_url = upload_file_to_drive(file_path, f"{uid}.mp3", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
+
     except Exception as e:
+        logger.exception("Error handling media upload")
         await msg.reply_text(f"Error uploading media: {e}")
         return
+
     finally:
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
+            logger.info(f"Cleaned up temp file: {file_path}")
 
     log_task(uid, user, submitted_by, msg.text or "", media_url)
+    logger.info(f"Task logged with UID: {uid}")
     await msg.reply_text(f"✅ Task created! Your task ID is: {uid}\nView all tasks at: {DASHBOARD_URL}")
 
 
@@ -102,4 +112,5 @@ async def status_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     uid, status = update.callback_query.data.split(":")
     update_status(uid, status, update.effective_user.username)
+    logger.info(f"Status for UID {uid} updated to {status} by {update.effective_user.username}")
     await update.callback_query.edit_message_text(f"✅ UID {uid} updated to {status}")

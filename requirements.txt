@@ -1,8 +1,8 @@
-fastapi
-uvicorn
-python-telegram-bot[asyncio]
-flask
-google-api-python-client
-google-auth
-google-cloud-secret-manager
-gunicorn
+fastapi==0.111.0
+uvicorn==0.29.0
+python-telegram-bot[asyncio]==20.7
+flask==2.3.3
+gunicorn==21.2.0
+google-api-python-client==2.127.0
+google-auth==2.29.0
+google-cloud-secret-manager==2.22.0
