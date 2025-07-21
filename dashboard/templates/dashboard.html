@@ -3,12 +3,37 @@
 <head>
   <title>Dashboard</title>
   <style>
-    body { font-family: sans-serif; padding: 1em; }
-    .task { border: 1px solid #ddd; padding: 1em; margin: 1em 0; border-radius: 8px; }
+    body { font-family: sans-serif; padding: 1em; background: #fafafa; }
+    .task {
+      border: 1px solid #ccc;
+      padding: 1em;
+      margin: 1em 0;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
+    }
+    .task:hover {
+      box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.15);
+    }
     .status-New { background: #eef; }
     .status-In\ Progress { background: #ffe; }
     .status-Done { background: #efe; }
     .status-Delete { background: #fdd; }
+    .media-thumbnail {
+      max-width: 100px;
+      max-height: 100px;
+      border-radius: 6px;
+      margin: 4px 0;
+      transition: transform 0.2s ease-in-out;
+    }
+    .media-thumbnail:hover {
+      transform: scale(1.1);
+    }
+    .timestamp {
+      font-size: 0.8em;
+      color: #666;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -20,9 +45,23 @@
   {% for t in tasks %}
   <div class="task status-{{ t[6]|default('New') }}">
     <strong>UID:</strong> {{ t[1] }} <br>
+    <div class="timestamp">{{ t[0] }}</div>
     <strong>User:</strong> {{ t[2] }} <br>
     <strong>Message:</strong> {{ t[4] }} <br>
-    {% if t[5] %}<a href="{{ t[5] }}" target="_blank">📎 View Media</a><br>{% endif %}
+    {% if t[5] %}
+      {% if t[5].endswith('.jpg') or t[5].endswith('.png') %}
+        <a href="{{ t[5] }}" target="_blank">
+          <img src="{{ t[5] }}" class="media-thumbnail" alt="media">
+        </a><br>
+      {% elif t[5].endswith('.mp4') %}
+        <video class="media-thumbnail" controls>
+          <source src="{{ t[5] }}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video><br>
+      {% else %}
+        <a href="{{ t[5] }}" target="_blank">📎 View Media</a><br>
+      {% endif %}
+    {% endif %}
     <strong>Status:</strong> {{ t[6] }} <br>
     <strong>Assigned To:</strong> {{ t[9] }} <br>
     <strong>Updated By:</strong> {{ t[7] }} at {{ t[8] }}

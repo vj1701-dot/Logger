@@ -47,23 +47,33 @@ def upload_file_to_drive(file_path: str, filename: str, folder_id: str, credenti
     """
     try:
         drive_service = build('drive', 'v3', credentials=credentials)
+
+        # Check if folder exists
+        folder = drive_service.files().get(fileId=folder_id, fields='id, name').execute()
+        logger.info(f"Uploading to folder: {folder.get('name')} ({folder_id})")
+
         file_metadata = {'name': filename, 'parents': [folder_id]}
         media = MediaFileUpload(file_path, resumable=True)
+
         file = drive_service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id'
         ).execute()
+
         file_id = file.get('id')
+
         drive_service.permissions().create(
             fileId=file_id,
             body={'type': 'anyone', 'role': 'reader'}
         ).execute()
+
         shareable_link = f"https://drive.google.com/file/d/{file_id}/view"
         logger.info(f"File uploaded to Drive: {shareable_link}")
         return shareable_link
+
     except Exception as e:
-        logger.exception("Failed to upload file to Google Drive")
+        logger.exception(f"Failed to upload to Drive folder {folder_id}. Check that the folder exists and is shared correctly.")
         return ""
 
 # --- Google Sheets ---
