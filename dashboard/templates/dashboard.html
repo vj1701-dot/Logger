@@ -46,7 +46,7 @@
   <div class="task status-{{ t[6]|default('New') }}">
     <strong>UID:</strong> {{ t[1] }} <br>
     <div class="timestamp">{{ t[0] }}</div>
-    <strong>User:</strong> {{ t[2] }} <br>
+    <strong>Task Added By:</strong> {{ t[2] }} <br>
     <strong>Message:</strong> {{ t[4] }} <br>
     {% if t[5] %}
       {% if t[5].endswith('.jpg') or t[5].endswith('.png') %}

@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from bot.google_utils import get_secret, get_service_account_credentials
+from bot.google_utils import get_service_account_credentials
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -10,17 +10,15 @@ PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 if not PROJECT_ID:
     raise EnvironmentError("GCP_PROJECT_ID environment variable is not set.")
 
-try:
-    TELEGRAM_BOT_TOKEN = get_secret("TELEGRAM_BOT_TOKEN", PROJECT_ID)
-    GOOGLE_DRIVE_FOLDER_ID = get_secret("GOOGLE_DRIVE_FOLDER_ID", PROJECT_ID)
-    GOOGLE_SHEET_ID = get_secret("GOOGLE_SHEET_ID", PROJECT_ID)
-    ADMIN_IDS = [id.strip() for id in get_secret("ADMIN_IDS", PROJECT_ID).split(",")]
-    DASHBOARD_PASS = get_secret("DASHBOARD_PASS", PROJECT_ID)
-    service_account_json = get_secret("GOOGLE_SERVICE_ACCOUNT_JSON", PROJECT_ID)
-    service_account_info = json.loads(service_account_json)
-    GOOGLE_CREDENTIALS = get_service_account_credentials(service_account_info)
-except Exception as e:
-    logger.exception("Failed to load secrets or credentials")
-    raise
-
+# Read all secrets from environment variables
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
+ADMIN_IDS = os.environ.get("ADMIN_IDS", "").split(",") if os.environ.get("ADMIN_IDS") else []
+DASHBOARD_PASS = os.environ.get("DASHBOARD_PASS", "")
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "/dashboard")
+
+# Service account JSON is provided directly via env var
+service_account_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "{}")
+service_account_info = json.loads(service_account_json)
+GOOGLE_CREDENTIALS = get_service_account_credentials(service_account_info) if service_account_info else None
