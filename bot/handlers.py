@@ -20,18 +20,20 @@ def log_task(uid, username, submitted_by, message, media_url):
 		now, uid, username, submitted_by, message, media_url,
 		"New", "", "", ""  # Status, Updated By, Updated Time, Assigned To
 	]
+	logger.info(f"Appending task row to sheet {GOOGLE_SHEET_ID}: uid={uid} user={username} media={bool(media_url)}")
 	append_row_to_sheet(GOOGLE_SHEET_ID, row, GOOGLE_CREDENTIALS)
 
 
 def update_status(uid, status, updated_by):
-	# This is a placeholder. In production, you would search for the row with UID and update it.
-	# For demo, let's assume UID is the row number (not true in real Sheets, but for brevity).
+	# Placeholder: update by row index is not accurate; kept for demo purposes
 	now = datetime.datetime.utcnow().isoformat()
 	row = ["", uid, "", "", "", "", status, updated_by, now, ""]
+	logger.info(f"Updating status in sheet {GOOGLE_SHEET_ID}: uid={uid} -> {status} by {updated_by}")
 	update_row_in_sheet(GOOGLE_SHEET_ID, int(uid), row, GOOGLE_CREDENTIALS)
 
 
 def register_handlers(app: Application):
+	logger.info("Registering Telegram command and message handlers")
 	app.add_handler(CommandHandler("start", start))
 	app.add_handler(CommandHandler("dashboard", dashboard))
 	app.add_handler(CommandHandler("status", status))
@@ -43,11 +45,15 @@ def register_handlers(app: Application):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	logger.info(f"/start from user_id={update.effective_user.id} username={update.effective_user.username}")
 	await update.message.reply_text("Send a message or media to log a task.")
 
 
 async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"/dashboard requested by user_id={user_id}")
+	if not is_admin(user_id):
+		logger.warning(f"Unauthorized /dashboard by user_id={user_id}")
 		await update.message.reply_text("Unauthorized")
 		return
 	await update.message.reply_text(f"Dashboard: {DASHBOARD_URL}")
@@ -56,26 +62,32 @@ async def dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	uid = generate_uid()
 	user = update.effective_user.username or "unknown"
+	user_id = update.effective_user.id
 	submitted_by = f"{update.effective_user.first_name} {update.effective_user.last_name or ''}".strip()
 	msg = update.message
 	media_url = ""
 	file_path = None
 
 	try:
-		logger.info(f"Received message from {submitted_by} ({user})")
+		logger.info(f"Incoming message from user_id={user_id} username={user} uid={uid}")
 
 		if msg.photo:
+			logger.info("Photo detected")
 			file = await msg.photo[-1].get_file()
 			file_path = await file.download_to_drive(f"/tmp/{uid}.jpg")
 			media_url = upload_file_to_drive(file_path, f"{uid}.jpg", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
 		elif msg.video:
+			logger.info("Video detected")
 			file = await msg.video.get_file()
 			file_path = await file.download_to_drive(f"/tmp/{uid}.mp4")
 			media_url = upload_file_to_drive(file_path, f"{uid}.mp4", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
 		elif msg.audio:
+			logger.info("Audio detected")
 			file = await msg.audio.get_file()
 			file_path = await file.download_to_drive(f"/tmp/{uid}.mp3")
 			media_url = upload_file_to_drive(file_path, f"{uid}.mp3", GOOGLE_DRIVE_FOLDER_ID, GOOGLE_CREDENTIALS)
+		else:
+			logger.info("Text-only message")
 
 	except Exception as e:
 		logger.exception("Error handling media upload")
@@ -88,18 +100,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			logger.info(f"Cleaned up temp file: {file_path}")
 
 	log_task(uid, user, submitted_by, msg.text or "", media_url)
-	logger.info(f"Task logged with UID: {uid}")
+	logger.info(f"Task logged uid={uid} user_id={user_id}")
 	await msg.reply_text(f"✅ Task created! Your task ID is: {uid}\nView all tasks at: {DASHBOARD_URL}")
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"/status requested by user_id={user_id} args={context.args}")
+	if not is_admin(user_id):
+		logger.warning(f"Unauthorized /status by user_id={user_id}")
 		await update.message.reply_text("Unauthorized")
 		return
 	if not context.args:
 		await update.message.reply_text("Usage: /status <UID>")
 		return
 	uid = context.args[0]
+	logger.info(f"Creating status buttons for UID {uid}")
 	buttons = [
 		[InlineKeyboardButton("🆕 New", callback_data=f"{uid}:New"),
 		 InlineKeyboardButton("🕒 In Progress", callback_data=f"{uid}:In Progress")],
@@ -111,7 +127,9 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def status_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"status button by user_id={user_id} data={update.callback_query.data}")
+	if not is_admin(user_id):
 		await update.callback_query.answer("Unauthorized")
 		return
 	uid, status = update.callback_query.data.split(":")
@@ -121,7 +139,9 @@ async def status_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def admin_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"/admin_add by user_id={user_id} args={context.args}")
+	if not is_admin(user_id):
 		await update.message.reply_text("Unauthorized")
 		return
 	if not context.args:
@@ -136,7 +156,9 @@ async def admin_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def admin_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"/admin_remove by user_id={user_id} args={context.args}")
+	if not is_admin(user_id):
 		await update.message.reply_text("Unauthorized")
 		return
 	if not context.args:
@@ -151,7 +173,9 @@ async def admin_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def admins_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	if not is_admin(update.effective_user.id):
+	user_id = update.effective_user.id
+	logger.info(f"/admins by user_id={user_id}")
+	if not is_admin(user_id):
 		await update.message.reply_text("Unauthorized")
 		return
 	admins = sorted(list(get_admin_ids()))

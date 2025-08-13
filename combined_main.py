@@ -24,6 +24,9 @@ register_handlers(application)
 app = FastAPI()
 app.mount("/dashboard", WSGIMiddleware(flask_app))
 
+# Debug env snapshot
+logger.info("Startup env snapshot: PUBLIC_BASE_URL=%s, WEBHOOK_SECRET_SET=%s", os.environ.get("PUBLIC_BASE_URL"), bool(os.environ.get("TELEGRAM_WEBHOOK_SECRET")))
+
 # Ensure application is initialized on startup
 @app.on_event("startup")
 async def startup():
@@ -41,6 +44,7 @@ def _derive_base_url(req: Request) -> str:
     # Derive from request headers (works on Cloud Run)
     proto = req.headers.get("x-forwarded-proto", "https")
     host = req.headers.get("host")
+    logger.info("Deriving base URL from headers: x-forwarded-proto=%s host=%s", proto, host)
     if not host:
         raise HTTPException(status_code=400, detail="Cannot determine host for webhook URL. Set PUBLIC_BASE_URL.")
     return f"{proto}://{host}"
@@ -51,13 +55,15 @@ async def webhook(req: Request):
     try:
         # Optional secret token validation
         expected_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
+        header_secret = req.headers.get("x-telegram-bot-api-secret-token")
+        logger.info("/webhook headers: secret_present=%s content_type=%s", bool(header_secret), req.headers.get("content-type"))
         if expected_secret:
-            header_secret = req.headers.get("x-telegram-bot-api-secret-token")
             if header_secret != expected_secret:
+                logger.warning("Invalid webhook secret: expected=%s got_present=%s", bool(expected_secret), bool(header_secret))
                 raise HTTPException(status_code=403, detail="Invalid webhook secret token")
 
         body = await req.json()
-        logger.info(f"Incoming webhook: {body}")
+        logger.info("Incoming webhook body keys: %s", list(body.keys()) if isinstance(body, dict) else type(body))
         if not isinstance(body, dict) or "update_id" not in body:
             logger.warning("Malformed Telegram update received.")
             return {"error": "Invalid update payload."}
@@ -81,8 +87,10 @@ async def set_webhook(req: Request):
     try:
         if not application.running:
             await application.initialize()
+        logger.info("Setting webhook url=%s secret_set=%s", url, bool(secret))
         await application.bot.set_webhook(url=url, secret_token=secret)
         info = await application.bot.get_webhook_info()
+        logger.info("Webhook set: %s", info.to_dict())
         return {"ok": True, "webhook": info.to_dict()}
     except Exception as e:
         logger.exception("Failed to set webhook")
@@ -94,6 +102,7 @@ async def delete_webhook():
     try:
         if not application.running:
             await application.initialize()
+        logger.info("Deleting webhook")
         await application.bot.delete_webhook(drop_pending_updates=False)
         info = await application.bot.get_webhook_info()
         return {"ok": True, "webhook": info.to_dict()}
