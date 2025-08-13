@@ -28,6 +28,8 @@ Set these for Docker and Cloud Run. All are strings unless noted.
 - DASHBOARD_PASS: Password required to access the dashboard login
 - FLASK_SECRET_KEY: Random secret string for Flask sessions (generate with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
 - DASHBOARD_URL: Optional. Public dashboard URL (e.g. `https://your-run-url/dashboard`) used in bot replies. Defaults to `/dashboard`.
+- PUBLIC_BASE_URL: Optional but recommended for webhook setup endpoints (e.g. `https://your-run-url`). If not set, it is derived from the incoming request headers.
+- TELEGRAM_WEBHOOK_SECRET: Optional shared secret used to verify Telegram webhook requests. See "Webhook management" below.
 
 Notes:
 - ADMIN_IDS env var is no longer required. Admins are stored in a Google Sheet tab named `Admins`.
@@ -48,6 +50,26 @@ Tip: Seed the first admin by manually adding your Telegram user ID (from @userin
 
 ---
 
+## Webhook management
+Built-in endpoints let you manage the Telegram webhook without using the Telegram API directly:
+- `POST /set_webhook` → sets the webhook to `PUBLIC_BASE_URL/webhook` (or derives base URL from request if `PUBLIC_BASE_URL` is unset). If `TELEGRAM_WEBHOOK_SECRET` is set, it is sent to Telegram and required on incoming requests.
+- `POST /delete_webhook` → deletes the currently configured webhook
+- `GET /webhook_info` → returns Telegram webhook status
+
+What is `TELEGRAM_WEBHOOK_SECRET`?
+- A shared secret you choose. When set, `/set_webhook` registers it with Telegram. Telegram will include the header `x-telegram-bot-api-secret-token` on every webhook call.
+- The app verifies this header in `/webhook` and rejects requests without the correct value.
+
+How to generate a strong secret:
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+# or
+openssl rand -hex 32
+```
+Set the generated value as the env var `TELEGRAM_WEBHOOK_SECRET` in Cloud Run or Docker.
+
+---
+
 ## Docker (Local)
 1) Build image:
 ```bash
@@ -64,6 +86,8 @@ docker run -p 8080:8080 \
   -e DASHBOARD_PASS=your-dashboard-pass \
   -e FLASK_SECRET_KEY=your-flask-secret \
   -e DASHBOARD_URL=http://localhost:8080/dashboard \
+  -e PUBLIC_BASE_URL=http://localhost:8080 \
+  -e TELEGRAM_WEBHOOK_SECRET=your-generated-secret \
   logger
 ```
 Visit:
@@ -83,7 +107,8 @@ Visit:
 5) Deploy. Your service URL will be shown after deploy. Dashboard is at `<service-url>/dashboard`.
 
 Webhook:
-- Set your Telegram webhook to `<service-url>/webhook` using Telegram HTTP API.
+- Use `POST <service-url>/set_webhook` to register the webhook (requires `TELEGRAM_BOT_TOKEN` set). If `PUBLIC_BASE_URL` is not configured, the service derives it from the request host headers.
+- Use `GET <service-url>/webhook_info` to verify status, and `POST <service-url>/delete_webhook` to remove.
 
 ---
 
