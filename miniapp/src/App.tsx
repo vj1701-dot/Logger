@@ -3,7 +3,6 @@ import { TaskList } from './components/TaskList'
 import { TaskDetail } from './components/TaskDetail'
 import { TelegramService } from './services/telegram'
 import { ApiService } from './services/api'
-import './App.css'
 
 export interface Task {
   uid: string
