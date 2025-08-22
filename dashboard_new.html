@@ -61,7 +61,7 @@
             <h2 class="text-xl font-bold text-gray-800 mb-6">Admin Panel</h2>
             
             <!-- User Management -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 <div class="bg-white/50 rounded-xl p-6">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4">User Management</h3>
                     <div id="usersList" class="space-y-3"></div>
@@ -85,7 +85,7 @@
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div class="glassmorphism rounded-xl p-6">
                 <div class="flex items-center">
                     <div class="p-3 rounded-lg bg-blue-500 text-white">
@@ -144,8 +144,8 @@
         </div>
 
         <!-- Filters -->
-        <div class="glassmorphism rounded-xl p-6 mb-6">
-            <div class="flex flex-wrap items-center gap-4">
+        <div class="glassmorphism rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+            <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
                 <select id="statusFilter" class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="">All Status</option>
                     <option value="new">New</option>
@@ -163,16 +163,16 @@
                     <option value="urgent">Urgent</option>
                 </select>
                 
-                <input type="text" id="searchInput" placeholder="Search tasks..." class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 min-w-0">
+                <input type="text" id="searchInput" placeholder="Search tasks..." class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 min-w-0 sm:min-w-[200px]">
                 
-                <button onclick="loadTasks()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all">
+                <button onclick="loadTasks()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 sm:px-6 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all whitespace-nowrap">
                     Refresh
                 </button>
             </div>
         </div>
 
         <!-- Tasks Grid -->
-        <div id="tasksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div id="tasksGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             <!-- Tasks will be loaded here -->
         </div>
 
@@ -182,11 +182,14 @@
         </div>
     </div>
 
-    <!-- Task Detail Modal -->
-    <div id="taskModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div id="taskModalContent">
-                <!-- Task details will be loaded here -->
+    <!-- Media Lightbox Modal -->
+    <div id="mediaLightbox" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+        <div class="relative max-w-4xl max-h-[90vh] w-full">
+            <button onclick="closeMediaLightbox()" class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full w-10 h-10 flex items-center justify-center hover:bg-opacity-70 z-10">
+                ×
+            </button>
+            <div id="mediaLightboxContent" class="flex items-center justify-center h-full">
+                <!-- Media content will be loaded here -->
             </div>
         </div>
     </div>
@@ -247,9 +250,27 @@
         async function loadTasks() {
             try {
                 document.getElementById('loading').classList.remove('hidden');
-                const response = await apiRequest('/api/tasks?limit=100');
-                const data = await response.json();
-                allTasks = data.tasks;
+                
+                // Load all tasks by fetching each status separately
+                const allStatuses = ['new', 'in_progress', 'done', 'canceled', 'on_hold'];
+                let allTasksData = [];
+                
+                for (const status of allStatuses) {
+                    try {
+                        const response = await apiRequest(`/api/tasks?status=${status}&limit=100`);
+                        const data = await response.json();
+                        allTasksData = allTasksData.concat(data.tasks || []);
+                    } catch (error) {
+                        console.warn(`Failed to load tasks with status ${status}:`, error);
+                    }
+                }
+                
+                // Remove duplicates based on UID
+                const uniqueTasks = allTasksData.filter((task, index, self) => 
+                    index === self.findIndex(t => t.uid === task.uid)
+                );
+                
+                allTasks = uniqueTasks;
                 displayTasks(allTasks);
                 updateStats(allTasks);
             } catch (error) {
@@ -289,98 +310,157 @@
 
         function createTaskCard(task) {
             const createdBy = task.created_by ? task.created_by.name : 'Unknown';
-            const mediaCount = task.media ? task.media.length : 0;
-            const assigneeNames = task.assignees ? task.assignees.map(a => a.name).join(', ') : 'Unassigned';
+            const assigneeNames = task.assignees && task.assignees.length > 0 ? task.assignees.map(a => a.name).join(', ') : 'Not assigned';
+            const priorityIcon = getPriorityIcon(task.priority);
             
             return `
-                <div class="task-card glassmorphism rounded-xl overflow-hidden cursor-pointer" onclick="openTaskModal('${task.uid}')">
-                    <div class="p-6">
-                        <!-- Header -->
-                        <div class="flex items-start justify-between mb-4">
-                            <div>
-                                <div class="text-sm text-gray-500 mb-1">Created by: ${createdBy}</div>
-                                <h3 class="text-lg font-semibold text-gray-900 line-clamp-2">${task.title}</h3>
-                                <p class="text-sm text-gray-600 mt-1">UID: ${task.uid}</p>
+                <div class="task-card glassmorphism rounded-xl overflow-hidden">
+                    <div class="p-4">
+                        <!-- Header with UID and Status -->
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm font-mono font-medium text-gray-700">${task.uid}</span>
+                                ${priorityIcon}
                             </div>
-                            <span class="status-${task.status} text-white text-xs px-3 py-1 rounded-full font-medium">
-                                ${task.status.replace('_', ' ').toUpperCase()}
-                            </span>
+                            <div class="flex items-center space-x-2">
+                                <span class="status-${task.status} text-white text-xs px-2 py-1 rounded-full font-medium">
+                                    ${task.status.replace('_', ' ').toUpperCase()}
+                                </span>
+                                ${currentUser && currentUser.isAdmin ? `
+                                    <div class="relative">
+                                        <button onclick="toggleCardMenu(event, '${task.uid}')" class="text-gray-400 hover:text-gray-600 p-1">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                            </svg>
+                                        </button>
+                                        <div id="menu-${task.uid}" class="hidden absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                            <button onclick="editTaskInline(event, '${task.uid}')" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100">Edit</button>
+                                            <button onclick="deleteTask(event, '${task.uid}')" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100">Delete</button>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
 
                         <!-- Description -->
-                        <p class="text-gray-700 text-sm mb-4 line-clamp-3">${task.description}</p>
+                        ${task.description && task.description.trim() && task.description !== 'Task created from telegram' ? `<div class="mb-3">
+                            <p class="text-gray-700 text-sm">${task.description}</p>
+                        </div>` : ''}
 
                         <!-- Media Preview -->
-                        ${mediaCount > 0 ? `
-                            <div class="mb-4">
-                                <div class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
-                                    </svg>
-                                    <span>${mediaCount} file(s)</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2">
-                                    ${task.media.slice(0, 3).map(media => createMediaPreview(media, task.uid)).join('')}
-                                    ${mediaCount > 3 ? `<div class="bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">+${mediaCount - 3}</div>` : ''}
+                        ${task.media && task.media.length > 0 ? `
+                            <div class="mb-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    ${task.media.map((media, index) => createFullMediaPreview(media, task.uid, index)).join('')}
                                 </div>
                             </div>
                         ` : ''}
 
-                        <!-- Footer -->
-                        <div class="flex items-center justify-between text-sm text-gray-600">
-                            <div class="flex items-center space-x-4">
-                                <div class="flex items-center">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                    </svg>
-                                    <span class="truncate">${assigneeNames}</span>
-                                </div>
+                        <!-- Task Details -->
+                        <div class="space-y-2 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-500">Created by:</span>
+                                <span class="text-gray-700 font-medium">${createdBy}</span>
                             </div>
-                            <div class="text-xs">
-                                ${new Date(task.timestamps.createdAt).toLocaleDateString()}
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-500">Assignee:</span>
+                                <span class="text-gray-700 font-medium">${assigneeNames}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-500">Created:</span>
+                                <span class="text-gray-700">${new Date(task.timestamps.createdAt).toLocaleDateString()}</span>
                             </div>
                         </div>
-
-                        <!-- Admin Actions -->
-                        ${currentUser && currentUser.isAdmin ? `
-                            <div class="mt-4 pt-4 border-t border-white/20 flex space-x-2">
-                                <button onclick="editTask(event, '${task.uid}')" class="flex-1 bg-blue-500 text-white py-2 px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
-                                    Edit
-                                </button>
-                                <button onclick="deleteTask(event, '${task.uid}')" class="flex-1 bg-red-500 text-white py-2 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors">
-                                    Delete
-                                </button>
-                            </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
         }
 
-        function createMediaPreview(media, taskUid) {
-            // Extract filename from path
+        function getPriorityIcon(priority) {
+            const icons = {
+                'low': '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800"><svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>Low</span>',
+                'medium': '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800"><svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>Medium</span>',
+                'high': '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800"><svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>High</span>',
+                'urgent': '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800"><svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>Urgent</span>'
+            };
+            return icons[priority] || icons['medium'];
+        }
+
+        function createFullMediaPreview(media, taskUid, index) {
             const filename = media.path.includes('/') ? media.path.split('/').pop() : media.path;
             const mediaUrl = `/api/media/${taskUid}/${filename}`;
             
             if (media.type === 'photo') {
-                return `<img src="${mediaUrl}" class="w-full h-16 object-cover rounded-lg" alt="Task media" onerror="this.style.display='none'">`;
+                return `
+                    <div class="relative cursor-pointer" onclick="openMediaLightbox('${mediaUrl}', 'photo', ${index})">
+                        <img src="${mediaUrl}" class="w-full h-32 object-cover rounded-lg hover:opacity-90 transition-opacity" alt="Task media" onerror="this.parentElement.style.display='none'">
+                        ${currentUser && currentUser.isAdmin ? `
+                            <button onclick="deleteMediaFile(event, '${taskUid}', '${filename}')" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                ×
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
             } else if (media.type === 'video') {
                 return `
-                    <div class="relative w-full h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a4.5 4.5 0 110 9H9m-4-9h4.5a4.5 4.5 0 110 9H5"/>
-                        </svg>
+                    <div class="relative cursor-pointer" onclick="openMediaLightbox('${mediaUrl}', 'video', ${index})">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition-colors">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 text-gray-600 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a4.5 4.5 0 110 9H9m-4-9h4.5a4.5 4.5 0 110 9H5"/>
+                                </svg>
+                                <div class="text-xs text-gray-600">Video</div>
+                            </div>
+                        </div>
+                        ${currentUser && currentUser.isAdmin ? `
+                            <button onclick="deleteMediaFile(event, '${taskUid}', '${filename}')" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                ×
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            } else if (media.type === 'audio' || media.type === 'voice') {
+                return `
+                    <div class="relative cursor-pointer" onclick="openMediaLightbox('${mediaUrl}', 'audio', ${index})">
+                        <div class="w-full h-32 bg-blue-100 rounded-lg flex items-center justify-center hover:bg-blue-200 transition-colors">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 text-blue-600 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 9v6l4-3-4-3z"/>
+                                </svg>
+                                <div class="text-xs text-blue-600">Audio</div>
+                            </div>
+                        </div>
+                        ${currentUser && currentUser.isAdmin ? `
+                            <button onclick="deleteMediaFile(event, '${taskUid}', '${filename}')" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                ×
+                            </button>
+                        ` : ''}
                     </div>
                 `;
             } else {
                 return `
-                    <div class="w-full h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                        </svg>
+                    <div class="relative cursor-pointer" onclick="window.open('${mediaUrl}', '_blank')">
+                        <div class="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 text-gray-600 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                                <div class="text-xs text-gray-600">Document</div>
+                            </div>
+                        </div>
+                        ${currentUser && currentUser.isAdmin ? `
+                            <button onclick="deleteMediaFile(event, '${taskUid}', '${filename}')" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                ×
+                            </button>
+                        ` : ''}
                     </div>
                 `;
             }
+        }
+
+        function createMediaPreview(media, taskUid) {
+            // Legacy function - keeping for compatibility
+            return createFullMediaPreview(media, taskUid, 0);
         }
 
         function displayUsers(users) {
@@ -551,28 +631,116 @@
             }
         }
 
-        function openTaskModal(uid) {
+        function toggleCardMenu(event, uid) {
+            event.stopPropagation();
+            const menu = document.getElementById(`menu-${uid}`);
+            // Close all other menus first
+            document.querySelectorAll('[id^="menu-"]').forEach(m => {
+                if (m.id !== `menu-${uid}`) m.classList.add('hidden');
+            });
+            menu.classList.toggle('hidden');
+        }
+
+        function openMediaLightbox(mediaUrl, mediaType, index) {
+            const lightbox = document.getElementById('mediaLightbox');
+            const content = document.getElementById('mediaLightboxContent');
+            
+            let mediaHtml = '';
+            if (mediaType === 'photo') {
+                mediaHtml = `<img src="${mediaUrl}" class="max-w-full max-h-full object-contain rounded-lg" alt="Media">`;
+            } else if (mediaType === 'video') {
+                mediaHtml = `<video controls class="max-w-full max-h-full rounded-lg" controlsList="nodownload">
+                    <source src="${mediaUrl}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>`;
+            } else if (mediaType === 'audio') {
+                mediaHtml = `<div class="bg-white p-8 rounded-lg">
+                    <audio controls class="w-full" controlsList="nodownload">
+                        <source src="${mediaUrl}" type="audio/mpeg">
+                        <source src="${mediaUrl}" type="audio/ogg">
+                        Your browser does not support the audio tag.
+                    </audio>
+                </div>`;
+            }
+            
+            content.innerHTML = mediaHtml;
+            lightbox.classList.remove('hidden');
+        }
+
+        function closeMediaLightbox() {
+            document.getElementById('mediaLightbox').classList.add('hidden');
+        }
+
+        async function deleteMediaFile(event, taskUid, filename) {
+            event.stopPropagation();
+            
+            if (!confirm('Are you sure you want to delete this media file?')) {
+                return;
+            }
+
+            try {
+                const response = await apiRequest(`/api/media/${taskUid}/${filename}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Media file deleted successfully');
+                    loadTasks(); // Reload tasks to reflect changes
+                } else {
+                    const error = await response.json();
+                    alert('Failed to delete media file: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error deleting media file');
+            }
+        }
+
+        function editTaskInline(event, uid) {
+            event.stopPropagation();
+            
             const task = allTasks.find(t => t.uid === uid);
             if (!task) {
                 alert('Task not found');
                 return;
             }
             
-            // Simple task detail display
-            const details = `
-                UID: ${task.uid}
-                Title: ${task.title}
-                Description: ${task.description}
-                Status: ${task.status}
-                Priority: ${task.priority}
-                Created: ${new Date(task.timestamps.createdAt).toLocaleString()}
-                Created by: ${task.created_by ? task.created_by.name : 'Unknown'}
-                Assignees: ${task.assignees ? task.assignees.map(a => a.name).join(', ') : 'None'}
-                Media files: ${task.media ? task.media.length : 0}
-            `;
+            const description = prompt('Edit Description:', task.description || '');
+            if (description === null) return; // User clicked cancel
             
-            alert(details);
+            const status = prompt('Edit Status (new/in_progress/done/canceled/on_hold):', task.status);
+            if (status === null) return;
+            
+            const priority = prompt('Edit Priority (low/medium/high/urgent):', task.priority);
+            if (priority === null) return;
+            
+            updateTaskDirect(uid, { description, status, priority });
         }
+
+        async function updateTaskDirect(uid, updates) {
+            try {
+                const response = await apiRequest(`/api/tasks/${uid}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updates)
+                });
+
+                if (response.ok) {
+                    alert('Task updated successfully');
+                    loadTasks();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to update task: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error updating task');
+            }
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('[id^="menu-"]') && !event.target.closest('button[onclick*="toggleCardMenu"]')) {
+                document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+            }
+        });
 
         function exportTasks() {
             if (allTasks.length === 0) {

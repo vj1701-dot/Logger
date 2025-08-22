@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import mimetypes
+from datetime import datetime
 from io import BytesIO
 from typing import List, Dict, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, User as TelegramUserObj
@@ -136,9 +137,9 @@ class BotHandlers:
             text = messages[0].text or ""
         
         # Extract title and description
-        lines = text.strip().split('\n', 1) if text else ["Media Group"]
-        title = lines[0][:100] if lines[0] else "Media Group"
-        description = lines[1] if len(lines) > 1 else lines[0] if lines[0] else "Multiple media files"
+        lines = text.strip().split('\n', 1) if text else []
+        title = lines[0][:100] if lines and lines[0] else f"Task {datetime.now().strftime('%H:%M')}"
+        description = lines[1] if len(lines) > 1 else (lines[0] if len(lines) == 1 and lines[0] else "")
         
         # Collect all media files
         media_files = []
@@ -180,13 +181,9 @@ class BotHandlers:
         """Create task from single message"""
         # Extract title and description
         text = message.text or message.caption or ""
-        lines = text.strip().split('\n', 1)
-        title = lines[0][:100] if lines else "New Task"
-        description = lines[1] if len(lines) > 1 else lines[0] if lines else "Task created from Telegram"
-        
-        if not title:
-            title = "New Task"
-            description = "Task created from Telegram"
+        lines = text.strip().split('\n', 1) if text else []
+        title = lines[0][:100] if lines and lines[0] else f"Task {datetime.now().strftime('%H:%M')}"
+        description = lines[1] if len(lines) > 1 else (lines[0] if len(lines) == 1 and lines[0] else "")
         
         # Handle single media file
         media_files = []
