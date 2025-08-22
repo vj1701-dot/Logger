@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Routes that don't require authentication
 PUBLIC_ROUTES = {
+    "/",
     "/health",
     "/webhook/telegram",
     "/api/auth/login",
@@ -21,6 +22,9 @@ PUBLIC_ROUTES = {
 # Routes that start with these prefixes are public
 PUBLIC_PREFIXES = [
     "/static/",
+    "/miniapp/",
+    "/dashboard/",
+    "/_next/",
     "/docs",
     "/openapi.json"
 ]
