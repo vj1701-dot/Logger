@@ -41,7 +41,6 @@ COPY main.py .
 
 # Copy built dashboard
 COPY --from=dashboard-builder /app/.next ./dashboard/.next
-COPY --from=dashboard-builder /app/public ./dashboard/public
 COPY --from=dashboard-builder /app/package.json ./dashboard/
 
 # Copy built mini app

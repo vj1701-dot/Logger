@@ -420,7 +420,8 @@ class BotHandlers:
             welcome_text = f"👋 Welcome to the Maintenance Task System!\n\n"
             welcome_text += f"📝 Send any message with text/media to create a task\n"
             welcome_text += f"🔍 Use `/status <UID>` to check task status\n"
-            welcome_text += f"💬 Use `/note <UID> <text>` or reply to add notes\n\n"
+            welcome_text += f"💬 Use `/note <UID> <text>` or reply to add notes\n"
+            welcome_text += f"📱 Use `/app` to open the mobile app\n\n"
             
             if await self.is_admin(user.telegram_id):
                 welcome_text += f"⚡ *Admin Commands:*\n"
@@ -436,6 +437,30 @@ class BotHandlers:
             logger.error(f"Failed to handle start command: {e}")
             await update.message.reply_text("Welcome to the Maintenance Task System!")
 
+    async def handle_app_command(self, update: Update, context):
+        """Handle /app command to open mini app"""
+        try:
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+            
+            # Create a web app button
+            webapp = WebAppInfo(url=f"{settings.APP_BASE_URL}/miniapp/")
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📱 Open Task App", web_app=webapp)]
+            ])
+            
+            await update.message.reply_text(
+                "📱 *Maintenance Task App*\n\n"
+                "View your assigned tasks, check status, and browse task details in the mobile app:",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to handle app command: {e}")
+            await update.message.reply_text(
+                f"📱 Open the task app: {settings.APP_BASE_URL}/miniapp/"
+            )
+
 def setup_bot_handlers(app: Application, gcs_client: GCSClient):
     """Setup all bot handlers"""
     handlers = BotHandlers(gcs_client)
@@ -445,6 +470,7 @@ def setup_bot_handlers(app: Application, gcs_client: GCSClient):
     app.add_handler(CommandHandler("status", handlers.handle_status_command))
     app.add_handler(CommandHandler("assign", handlers.handle_assign_command))
     app.add_handler(CommandHandler("note", handlers.handle_note_command))
+    app.add_handler(CommandHandler("app", handlers.handle_app_command))
     
     # Message handler for creating tasks (all media types and text)
     app.add_handler(MessageHandler(
