@@ -4,8 +4,8 @@ FROM node:18-alpine as dashboard-builder
 WORKDIR /app
 
 # Copy dashboard
-COPY dashboard/package.json dashboard/package-lock.json* ./
-RUN npm ci
+COPY dashboard/package.json ./
+RUN npm install
 
 COPY dashboard/ .
 RUN npm run build
@@ -16,8 +16,8 @@ FROM node:18-alpine as miniapp-builder
 WORKDIR /app
 
 # Copy mini app
-COPY miniapp/package.json miniapp/package-lock.json* ./
-RUN npm ci
+COPY miniapp/package.json ./
+RUN npm install
 
 COPY miniapp/ .
 RUN npm run build
