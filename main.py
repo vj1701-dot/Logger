@@ -70,8 +70,7 @@ app.add_middleware(
 # JWT middleware for protected routes
 app.middleware("http")(jwt_middleware)
 
-# Mount static files for dashboard and miniapp
-app.mount("/static", StaticFiles(directory="dashboard/static"), name="static")
+# Mount miniapp static files
 app.mount("/miniapp", StaticFiles(directory="miniapp/dist", html=True), name="miniapp")
 
 # API routes
