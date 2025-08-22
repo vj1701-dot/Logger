@@ -1,8 +1,9 @@
 fastapi==0.111.0
 uvicorn==0.29.0
 python-telegram-bot[asyncio]==20.7
-flask==2.3.3
-gunicorn==21.2.0
-google-api-python-client==2.127.0
+google-cloud-storage==2.14.0
 google-auth==2.29.0
-google-cloud-secret-manager==2.22.0
+pyjwt==2.8.0
+pydantic==2.5.3
+pytest==7.4.4
+pytest-asyncio==0.21.1

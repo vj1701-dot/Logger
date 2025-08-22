@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+}
+
+.status-chip {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-new {
+  @apply status-chip bg-gray-100 text-gray-800;
+}
+
+.status-in-progress {
+  @apply status-chip text-white;
+  background-color: var(--tg-theme-button-color, #3b82f6);
+}
+
+.status-on-hold {
+  @apply status-chip bg-yellow-100 text-yellow-800;
+}
+
+.status-done-pending-review {
+  @apply status-chip bg-orange-100 text-orange-800;
+}
+
+.status-done {
+  @apply status-chip bg-green-100 text-green-800;
+}
+
+.status-canceled {
+  @apply status-chip bg-red-100 text-red-800;
+}
+
+.tg-card {
+  background-color: var(--tg-theme-secondary-bg-color, #f8f9fa);
+  border: 1px solid var(--tg-theme-hint-color, #e5e7eb);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.tg-button {
+  background-color: var(--tg-theme-button-color, #3b82f6);
+  color: var(--tg-theme-button-text-color, #ffffff);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tg-link {
+  color: var(--tg-theme-link-color, #3b82f6);
+  text-decoration: none;
+}
+
+.tg-hint {
+  color: var(--tg-theme-hint-color, #6b7280);
+}
