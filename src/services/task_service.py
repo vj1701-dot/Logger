@@ -372,7 +372,7 @@ class TaskService:
                     await self._remove_assignee_index(uid, assignee.telegram_id)
             
             # Delete the main task file
-            task_path = f"tasks/{uid}"
+            task_path = f"tasks/{uid}.json"
             success = await self.gcs.delete_blob(task_path)
             
             if success:

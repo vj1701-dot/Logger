@@ -337,7 +337,7 @@
                                 </div>
                             </div>
                             <div class="text-xs">
-                                ${new Date(task.timestamps.created_at).toLocaleDateString()}
+                                ${new Date(task.timestamps.createdAt).toLocaleDateString()}
                             </div>
                         </div>
 
@@ -358,10 +358,12 @@
         }
 
         function createMediaPreview(media, taskUid) {
-            const mediaUrl = `/api/media/${taskUid}/${media.path.split('/').pop()}`;
+            // Extract filename from path
+            const filename = media.path.includes('/') ? media.path.split('/').pop() : media.path;
+            const mediaUrl = `/api/media/${taskUid}/${filename}`;
             
             if (media.type === 'photo') {
-                return `<img src="${mediaUrl}" class="w-full h-16 object-cover rounded-lg" alt="Task media">`;
+                return `<img src="${mediaUrl}" class="w-full h-16 object-cover rounded-lg" alt="Task media" onerror="this.style.display='none'">`;
             } else if (media.type === 'video') {
                 return `
                     <div class="relative w-full h-16 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -490,8 +492,39 @@
 
         function editTask(event, uid) {
             event.stopPropagation();
-            // TODO: Implement task editing
-            alert('Task editing feature coming soon!');
+            
+            const task = allTasks.find(t => t.uid === uid);
+            if (!task) {
+                alert('Task not found');
+                return;
+            }
+            
+            const title = prompt('Edit Title:', task.title);
+            if (title === null) return; // User clicked cancel
+            
+            const description = prompt('Edit Description:', task.description);
+            if (description === null) return; // User clicked cancel
+            
+            updateTask(uid, { title, description });
+        }
+
+        async function updateTask(uid, updates) {
+            try {
+                const response = await apiRequest(`/api/tasks/${uid}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updates)
+                });
+
+                if (response.ok) {
+                    alert('Task updated successfully');
+                    loadTasks();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to update task: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error updating task');
+            }
         }
 
         async function deleteTask(event, uid) {
@@ -519,8 +552,56 @@
         }
 
         function openTaskModal(uid) {
-            // TODO: Implement task detail modal
-            alert('Task detail modal coming soon!');
+            const task = allTasks.find(t => t.uid === uid);
+            if (!task) {
+                alert('Task not found');
+                return;
+            }
+            
+            // Simple task detail display
+            const details = `
+                UID: ${task.uid}
+                Title: ${task.title}
+                Description: ${task.description}
+                Status: ${task.status}
+                Priority: ${task.priority}
+                Created: ${new Date(task.timestamps.createdAt).toLocaleString()}
+                Created by: ${task.created_by ? task.created_by.name : 'Unknown'}
+                Assignees: ${task.assignees ? task.assignees.map(a => a.name).join(', ') : 'None'}
+                Media files: ${task.media ? task.media.length : 0}
+            `;
+            
+            alert(details);
+        }
+
+        function exportTasks() {
+            if (allTasks.length === 0) {
+                alert('No tasks to export');
+                return;
+            }
+            
+            const csvContent = [
+                'UID,Title,Description,Status,Priority,Created,CreatedBy,Assignees,MediaCount',
+                ...allTasks.map(task => [
+                    task.uid,
+                    `"${task.title.replace(/"/g, '""')}"`,
+                    `"${task.description.replace(/"/g, '""')}"`,
+                    task.status,
+                    task.priority,
+                    new Date(task.timestamps.createdAt).toISOString(),
+                    task.created_by ? task.created_by.name : 'Unknown',
+                    task.assignees ? task.assignees.map(a => a.name).join(';') : '',
+                    task.media ? task.media.length : 0
+                ].join(','))
+            ].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tasks_export_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
         }
 
         function logout() {

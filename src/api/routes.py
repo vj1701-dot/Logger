@@ -683,7 +683,7 @@ async def get_all_users(
                     "role": user.role.value,
                     "active": user.active,
                     "created_at": user.created_at.isoformat(),
-                    "last_active": user.last_active.isoformat() if user.last_active else None
+                    "last_active": user.last_seen_at.isoformat() if user.last_seen_at else None
                 }
                 for user in users
             ]
@@ -848,3 +848,85 @@ async def delete_task(
     except Exception as e:
         logger.error(f"Failed to delete task {uid}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete task")
+
+class TaskUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    priority: Optional[Priority] = None
+    assignee_ids: Optional[List[int]] = None
+
+@router.put("/tasks/{uid}")
+async def update_task(
+    uid: str,
+    update_req: TaskUpdateRequest,
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Update a task (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        task_service = TaskService(gcs_client)
+        user_service = UserService(gcs_client)
+        
+        # Get existing task
+        task = await task_service.get_task(uid)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        # Update fields if provided
+        if update_req.title is not None:
+            task.title = update_req.title
+        
+        if update_req.description is not None:
+            task.description = update_req.description
+        
+        if update_req.priority is not None:
+            task.priority = update_req.priority
+        
+        # Handle assignee updates
+        if update_req.assignee_ids is not None:
+            new_assignees = []
+            for telegram_id in update_req.assignee_ids:
+                user_obj = await user_service.get_user(telegram_id)
+                if user_obj:
+                    new_assignees.append(TelegramUser(
+                        telegram_id=user_obj.telegram_id,
+                        name=user_obj.name,
+                        username=user_obj.username
+                    ))
+            task.assignees = new_assignees
+        
+        # Handle status change
+        if update_req.status is not None and update_req.status != task.status:
+            admin_telegram_user = TelegramUser(
+                telegram_id=admin_user["telegram_id"],
+                name=admin_user["name"],
+                username=admin_user["username"]
+            )
+            task.change_status(update_req.status, admin_telegram_user)
+        
+        # Save updated task
+        success = await task_service.update_task(task)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update task")
+        
+        # Log admin action
+        await user_service.log_admin_action(
+            admin_user["telegram_id"],
+            "update_task",
+            uid,
+            {
+                "title": update_req.title,
+                "status": update_req.status.value if update_req.status else None,
+                "priority": update_req.priority.value if update_req.priority else None
+            }
+        )
+        
+        return {"message": "Task updated successfully", "task": task.to_dict()}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update task {uid}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update task")
