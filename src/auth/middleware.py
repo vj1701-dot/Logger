@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Routes that don't require authentication
 PUBLIC_ROUTES = {
     "/",
+    "/dashboard",
     "/health",
     "/webhook/telegram",
     "/api/auth/login",

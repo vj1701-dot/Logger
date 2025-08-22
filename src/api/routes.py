@@ -609,3 +609,55 @@ async def validate_miniapp_data(
 
 # Add missing import
 import io
+
+# Admin management endpoints
+class PromoteUserRequest(BaseModel):
+    telegram_id: int
+
+@router.post("/admin/promote")
+async def promote_user_to_admin(
+    promote_req: PromoteUserRequest,
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Promote a user to admin role (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        user_service = UserService(gcs_client)
+        
+        # Check if user exists
+        user = await user_service.get_user(promote_req.telegram_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if user.role == UserRole.ADMIN:
+            raise HTTPException(status_code=400, detail="User is already an admin")
+        
+        # Promote user to admin
+        success = await user_service.update_user_role(promote_req.telegram_id, UserRole.ADMIN)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to promote user")
+        
+        # Log admin action
+        await user_service.log_admin_action(
+            admin_user["telegram_id"],
+            "promote_user",
+            str(promote_req.telegram_id),
+            {"role": "admin"}
+        )
+        
+        return {
+            "message": f"User {user.name} promoted to admin successfully",
+            "user": {
+                "telegram_id": user.telegram_id,
+                "name": user.name,
+                "username": user.username,
+                "role": "admin"
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to promote user {promote_req.telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to promote user")
