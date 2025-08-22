@@ -75,155 +75,18 @@ class BotHandlers:
             message = update.message
             user = await self.get_or_create_user(message.from_user)
             
-            # Check if this is part of a media group
-            if message.media_group_id:
-                await self.handle_media_group(update, context, user)
-                return
+            # Extract title and description
+            text = message.text or message.caption or ""
+            lines = text.strip().split('\n', 1)
+            title = lines[0][:100]  # Limit title length
+            description = lines[1] if len(lines) > 1 else lines[0]
             
-            # Handle single message (text only or single media)
-            await self.create_single_task(message, user, context)
+            if not title:
+                title = "New Task"
+                description = "Task created from Telegram"
             
-        except Exception as e:
-            logger.error(f"Failed to handle message: {e}")
-            await message.reply_text(
-                "❌ Sorry, there was an error creating your task. Please try again."
-            )
-    
-    async def handle_media_group(self, update: Update, context, user: TelegramUser):
-        """Handle media group messages (multiple photos/videos together)"""
-        message = update.message
-        media_group_id = message.media_group_id
-        
-        # Initialize media group if not exists
-        if media_group_id not in self.media_groups:
-            self.media_groups[media_group_id] = {
-                'messages': [],
-                'user': user,
-                'timer': None
-            }
-        
-        # Add message to group
-        self.media_groups[media_group_id]['messages'].append(message)
-        
-        # Cancel previous timer if exists
-        if self.media_groups[media_group_id]['timer']:
-            self.media_groups[media_group_id]['timer'].cancel()
-        
-        # Set timer to process group after 2 seconds (to collect all messages)
-        self.media_groups[media_group_id]['timer'] = asyncio.create_task(
-            self.process_media_group_delayed(media_group_id, context)
-        )
-    
-    async def process_media_group_delayed(self, media_group_id: str, context):
-        """Process media group after delay to ensure all messages are collected"""
-        await asyncio.sleep(2)  # Wait for all media in group
-        
-        if media_group_id not in self.media_groups:
-            return
-        
-        group_data = self.media_groups[media_group_id]
-        messages = group_data['messages']
-        user = group_data['user']
-        
-        # Get text from first message with caption or use first message
-        text = ""
-        for msg in messages:
-            if msg.caption:
-                text = msg.caption
-                break
-        
-        if not text and messages:
-            text = messages[0].text or ""
-        
-        # Extract title and description
-        lines = text.strip().split('\n', 1) if text else ["Media Group"]
-        title = lines[0][:100] if lines[0] else "Media Group"
-        description = lines[1] if len(lines) > 1 else lines[0] if lines[0] else "Multiple media files"
-        
-        # Collect all media files
-        media_files = []
-        for msg in messages:
-            media_file = await self.extract_media_from_message(msg, context)
-            if media_file:
-                media_files.append(media_file)
-        
-        # Create single task with all media
-        task = await self.task_service.create_task(
-            title=title,
-            description=description,
-            created_by=user,
-            media_files=media_files if media_files else None
-        )
-        
-        is_admin = await self.is_admin(user.telegram_id)
-        keyboard = self.create_task_keyboard(task.uid, is_admin)
-        
-        # Send response to first message
-        if messages:
-            response_text = f"✅ *Task Created*\\n\\n"
-            response_text += f"🆔 *UID:* `{task.uid}`\\n"
-            response_text += f"📝 *Title:* {task.title}\\n"
-            response_text += f"📄 *Description:* {task.description}\\n"
-            response_text += f"📊 *Status:* {task.status.value.replace('_', ' ').title()}\\n"
-            response_text += f"📎 *Media:* {len(media_files)} file(s) attached\\n"
-            
-            await messages[0].reply_text(
-                response_text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=keyboard
-            )
-        
-        # Clean up
-        del self.media_groups[media_group_id]
-    
-    async def create_single_task(self, message, user: TelegramUser, context):
-        """Create task from single message"""
-        # Extract title and description
-        text = message.text or message.caption or ""
-        lines = text.strip().split('\n', 1)
-        title = lines[0][:100] if lines else "New Task"
-        description = lines[1] if len(lines) > 1 else lines[0] if lines else "Task created from Telegram"
-        
-        if not title:
-            title = "New Task"
-            description = "Task created from Telegram"
-        
-        # Handle single media file
-        media_files = []
-        media_file = await self.extract_media_from_message(message, context)
-        if media_file:
-            media_files.append(media_file)
-        
-        # Create task
-        task = await self.task_service.create_task(
-            title=title,
-            description=description,
-            created_by=user,
-            media_files=media_files if media_files else None
-        )
-        
-        is_admin = await self.is_admin(user.telegram_id)
-        keyboard = self.create_task_keyboard(task.uid, is_admin)
-        
-        # Build response message
-        response_text = f"✅ *Task Created*\\n\\n"
-        response_text += f"🆔 *UID:* `{task.uid}`\\n"
-        response_text += f"📝 *Title:* {task.title}\\n"
-        response_text += f"📄 *Description:* {task.description}\\n"
-        response_text += f"📊 *Status:* {task.status.value.replace('_', ' ').title()}\\n"
-        
-        if media_files:
-            response_text += f"📎 *Media:* {len(media_files)} file(s) attached\\n"
-        
-        await message.reply_text(
-            response_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard
-        )
-    
-    async def extract_media_from_message(self, message, context):
-        """Extract media file from message"""
-        try:
+            # Handle media files
+            media_files = []
             if message.photo:
                 # Get highest resolution photo
                 photo = message.photo[-1]
@@ -231,48 +94,48 @@ class BotHandlers:
                 file_data = BytesIO()
                 await file.download_to_memory(file_data)
                 
-                return {
+                media_files.append({
                     'type': MediaType.PHOTO.value,
                     'filename': f"{photo.file_id}.jpg",
                     'content_type': 'image/jpeg',
                     'data': file_data.getvalue()
-                }
+                })
             
             elif message.video:
                 file = await context.bot.get_file(message.video.file_id)
                 file_data = BytesIO()
                 await file.download_to_memory(file_data)
                 
-                return {
+                media_files.append({
                     'type': MediaType.VIDEO.value,
                     'filename': f"{message.video.file_id}.mp4",
                     'content_type': 'video/mp4',
                     'data': file_data.getvalue()
-                }
+                })
             
             elif message.audio:
                 file = await context.bot.get_file(message.audio.file_id)
                 file_data = BytesIO()
                 await file.download_to_memory(file_data)
                 
-                return {
+                media_files.append({
                     'type': MediaType.AUDIO.value,
                     'filename': message.audio.file_name or f"{message.audio.file_id}.mp3",
                     'content_type': 'audio/mpeg',
                     'data': file_data.getvalue()
-                }
+                })
             
             elif message.voice:
                 file = await context.bot.get_file(message.voice.file_id)
                 file_data = BytesIO()
                 await file.download_to_memory(file_data)
                 
-                return {
+                media_files.append({
                     'type': MediaType.VOICE.value,
                     'filename': f"{message.voice.file_id}.ogg",
                     'content_type': 'audio/ogg',
                     'data': file_data.getvalue()
-                }
+                })
             
             elif message.document:
                 file = await context.bot.get_file(message.document.file_id)
@@ -281,17 +144,45 @@ class BotHandlers:
                 
                 content_type = message.document.mime_type or 'application/octet-stream'
                 
-                return {
+                media_files.append({
                     'type': MediaType.DOCUMENT.value,
                     'filename': message.document.file_name or f"{message.document.file_id}",
                     'content_type': content_type,
                     'data': file_data.getvalue()
-                }
-        
+                })
+            
+            # Create task
+            task = await self.task_service.create_task(
+                title=title,
+                description=description,
+                created_by=user,
+                media_files=media_files if media_files else None
+            )
+            
+            is_admin = await self.is_admin(user.telegram_id)
+            keyboard = self.create_task_keyboard(task.uid, is_admin)
+            
+            # Build response message
+            response_text = f"✅ *Task Created*\n\n"
+            response_text += f"🆔 *UID:* `{task.uid}`\n"
+            response_text += f"📝 *Title:* {task.title}\n"
+            response_text += f"📄 *Description:* {task.description}\n"
+            response_text += f"📊 *Status:* {task.status.value.replace('_', ' ').title()}\n"
+            
+            if media_files:
+                response_text += f"📎 *Media:* {len(media_files)} file(s) attached\n"
+            
+            await message.reply_text(
+                response_text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard
+            )
+            
         except Exception as e:
-            logger.error(f"Failed to extract media: {e}")
-        
-        return None
+            logger.error(f"Failed to handle message: {e}")
+            await message.reply_text(
+                "❌ Sorry, there was an error creating your task. Please try again."
+            )
     
     async def handle_assign_command(self, update: Update, context):
         """Handle /assign command (admin only)"""
@@ -378,27 +269,27 @@ class BotHandlers:
             is_admin = await self.is_admin(user.telegram_id)
             
             # Build status message
-            response_text = f"📋 *Task Status*\\n\\n"
-            response_text += f"🆔 *UID:* `{task.uid}`\\n"
-            response_text += f"📝 *Title:* {task.title}\\n"
-            response_text += f"📊 *Status:* {task.status.value.replace('_', ' ').title()}\\n"
-            response_text += f"⚡ *Priority:* {task.priority.value.title()}\\n"
+            response_text = f"📋 *Task Status*\n\n"
+            response_text += f"🆔 *UID:* `{task.uid}`\n"
+            response_text += f"📝 *Title:* {task.title}\n"
+            response_text += f"📊 *Status:* {task.status.value.replace('_', ' ').title()}\n"
+            response_text += f"⚡ *Priority:* {task.priority.value.title()}\n"
             
             if task.assignees:
                 assignee_names = [a.name for a in task.assignees]
-                response_text += f"👥 *Assignees:* {', '.join(assignee_names)}\\n"
+                response_text += f"👥 *Assignees:* {', '.join(assignee_names)}\n"
             
             if task.on_hold_reason:
-                response_text += f"⏸️ *On Hold Reason:* {task.on_hold_reason}\\n"
+                response_text += f"⏸️ *On Hold Reason:* {task.on_hold_reason}\n"
             
-            response_text += f"📅 *Created:* {task.created_at.strftime('%Y-%m-%d %H:%M')}\\n"
-            response_text += f"🔄 *Updated:* {task.updated_at.strftime('%Y-%m-%d %H:%M')}\\n"
+            response_text += f"📅 *Created:* {task.created_at.strftime('%Y-%m-%d %H:%M')}\n"
+            response_text += f"🔄 *Updated:* {task.updated_at.strftime('%Y-%m-%d %H:%M')}\n"
             
             if task.media:
-                response_text += f"📎 *Media:* {len(task.media)} file(s)\\n"
+                response_text += f"📎 *Media:* {len(task.media)} file(s)\n"
             
             if task.notes:
-                response_text += f"💬 *Notes:* {len(task.notes)} note(s)\\n"
+                response_text += f"💬 *Notes:* {len(task.notes)} note(s)\n"
             
             keyboard = self.create_task_keyboard(task.uid, is_admin)
             
@@ -421,7 +312,7 @@ class BotHandlers:
             if update.message.reply_to_message:
                 # Extract UID from replied message
                 reply_text = update.message.reply_to_message.text or ""
-                uid_line = [line for line in reply_text.split('\\n') if 'UID:' in line]
+                uid_line = [line for line in reply_text.split('\n') if 'UID:' in line]
                 if uid_line:
                     uid = uid_line[0].split('`')[1]
                     note_content = update.message.text
@@ -528,15 +419,15 @@ class BotHandlers:
         try:
             user = await self.get_or_create_user(update.message.from_user)
             
-            welcome_text = f"👋 Welcome to the Maintenance Task System!\\n\\n"
-            welcome_text += f"📝 Send any message with text/media to create a task\\n"
-            welcome_text += f"🔍 Use `/status <UID>` to check task status\\n"
-            welcome_text += f"💬 Use `/note <UID> <text>` or reply to add notes\\n"
+            welcome_text = f"👋 Welcome to the Maintenance Task System!\n\n"
+            welcome_text += f"📝 Send any message with text/media to create a task\n"
+            welcome_text += f"🔍 Use `/status <UID>` to check task status\n"
+            welcome_text += f"💬 Use `/note <UID> <text>` or reply to add notes\n"
             
             if await self.is_admin(user.telegram_id):
-                welcome_text += f"⚡ *Admin Commands:*\\n"
-                welcome_text += f"👥 `/assign <UID> <telegram_id>` - assign tasks\\n"
-                welcome_text += f"🌐 Dashboard: {settings.APP_BASE_URL}\\n"
+                welcome_text += f"⚡ *Admin Commands:*\n"
+                welcome_text += f"👥 `/assign <UID> <telegram_id>` - assign tasks\n"
+                welcome_text += f"🌐 Dashboard: {settings.APP_BASE_URL}\n"
             
             await update.message.reply_text(
                 welcome_text,

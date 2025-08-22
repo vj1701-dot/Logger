@@ -38,6 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source
 COPY src/ ./src/
 COPY main.py .
+COPY dashboard_new.html .
 
 # Copy built dashboard
 COPY --from=dashboard-builder /app/.next ./dashboard/.next

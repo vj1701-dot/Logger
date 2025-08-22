@@ -16,14 +16,12 @@ PUBLIC_ROUTES = {
     "/webhook/telegram",
     "/api/auth/login",
     "/api/auth/magic-link",
-    "/api/miniapp/validate",
     "/cron/media-retention"
 }
 
 # Routes that start with these prefixes are public
 PUBLIC_PREFIXES = [
     "/static/",
-    "/miniapp/",
     "/dashboard/",
     "/_next/",
     "/docs",
@@ -47,21 +45,27 @@ def extract_bearer_token(authorization: str) -> Optional[str]:
         pass
     return None
 
-def check_basic_auth(authorization: str) -> bool:
-    """Check Basic Auth against admin credentials"""
-    if not settings.ADMIN_USER or not settings.ADMIN_PASS:
-        return False
-    
+def check_basic_auth(authorization: str) -> tuple:
+    """Check Basic Auth against admin and user credentials"""
     try:
         scheme, credentials = authorization.split(" ", 1)
         if scheme.lower() == "basic":
             decoded = base64.b64decode(credentials).decode()
             username, password = decoded.split(":", 1)
-            return username == settings.ADMIN_USER and password == settings.ADMIN_PASS
+            
+            # Check admin credentials
+            if (settings.ADMIN_USER and settings.ADMIN_PASS and 
+                username == settings.ADMIN_USER and password == settings.ADMIN_PASS):
+                return True, "admin"
+            
+            # Check user credentials
+            if username == "user" and password == "user":
+                return True, "user"
+                
     except (ValueError, UnicodeDecodeError):
         pass
     
-    return False
+    return False, None
 
 def check_cron_auth(request: Request) -> bool:
     """Check cron authentication"""
@@ -109,14 +113,23 @@ async def jwt_middleware(request: Request, call_next):
             return response
     
     # Try Basic Auth as fallback
-    if check_basic_auth(authorization):
-        # Add admin user to request state
-        request.state.user = {
-            "telegram_id": 0,  # Special admin user
-            "name": "Admin",
-            "username": "admin",
-            "role": "admin"
-        }
+    auth_valid, user_role = check_basic_auth(authorization)
+    if auth_valid:
+        # Add user to request state based on role
+        if user_role == "admin":
+            request.state.user = {
+                "telegram_id": 0,  # Special admin user
+                "name": "Admin",
+                "username": "admin",
+                "role": "admin"
+            }
+        else:  # user role
+            request.state.user = {
+                "telegram_id": -1,  # Special regular user
+                "name": "User",
+                "username": "user",
+                "role": "user"
+            }
         response = await call_next(request)
         return response
     

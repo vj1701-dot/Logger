@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .task-card {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
+        .task-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .media-preview {
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .status-new { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .status-in_progress { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .status-done { background: linear-gradient(135deg, #10b981, #047857); }
+        .status-canceled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .status-on_hold { background: linear-gradient(135deg, #6b7280, #4b5563); }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <!-- Navigation -->
+    <nav class="glassmorphism border-b border-white/20 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg"></div>
+                    <h1 class="text-xl font-bold text-gray-800">Task Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="userInfo" class="text-sm text-gray-600"></div>
+                    <button id="adminPanelBtn" onclick="toggleAdminPanel()" class="hidden bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all">
+                        Admin Panel
+                    </button>
+                    <button onclick="logout()" class="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-white/50 transition-all">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="glassmorphism rounded-xl p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-6">Admin Panel</h2>
+            
+            <!-- User Management -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white/50 rounded-xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">User Management</h3>
+                    <div id="usersList" class="space-y-3"></div>
+                </div>
+                
+                <div class="bg-white/50 rounded-xl p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                    <div class="space-y-3">
+                        <button onclick="loadUsers()" class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                            Refresh Users
+                        </button>
+                        <button onclick="exportTasks()" class="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                            Export Tasks
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="glassmorphism rounded-xl p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-lg bg-blue-500 text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Tasks</p>
+                        <p id="totalTasks" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glassmorphism rounded-xl p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-lg bg-yellow-500 text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">In Progress</p>
+                        <p id="inProgressTasks" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glassmorphism rounded-xl p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-lg bg-green-500 text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Completed</p>
+                        <p id="completedTasks" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glassmorphism rounded-xl p-6">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-lg bg-purple-500 text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Assignees</p>
+                        <p id="totalAssignees" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="glassmorphism rounded-xl p-6 mb-6">
+            <div class="flex flex-wrap items-center gap-4">
+                <select id="statusFilter" class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Status</option>
+                    <option value="new">New</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Done</option>
+                    <option value="canceled">Canceled</option>
+                    <option value="on_hold">On Hold</option>
+                </select>
+                
+                <select id="priorityFilter" class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">All Priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+                
+                <input type="text" id="searchInput" placeholder="Search tasks..." class="bg-white/70 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 min-w-0">
+                
+                <button onclick="loadTasks()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Tasks Grid -->
+        <div id="tasksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Tasks will be loaded here -->
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="flex justify-center items-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="taskModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div id="taskModalContent">
+                <!-- Task details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let allTasks = [];
+        let allUsers = [];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            const auth = localStorage.getItem('auth');
+            if (!auth) {
+                window.location.href = '/';
+                return;
+            }
+            
+            // Decode auth to get user info
+            const decoded = atob(auth);
+            const [username] = decoded.split(':');
+            currentUser = {
+                username: username,
+                isAdmin: username === 'admin'
+            };
+            
+            document.getElementById('userInfo').textContent = `Welcome, ${username}`;
+            
+            if (currentUser.isAdmin) {
+                document.getElementById('adminPanelBtn').classList.remove('hidden');
+            }
+            
+            loadTasks();
+            if (currentUser.isAdmin) {
+                loadUsers();
+            }
+        });
+
+        async function apiRequest(url, options = {}) {
+            const auth = localStorage.getItem('auth');
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'Authorization': 'Basic ' + auth,
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+            
+            if (!response.ok && response.status === 401) {
+                localStorage.removeItem('auth');
+                window.location.href = '/';
+                return;
+            }
+            
+            return response;
+        }
+
+        async function loadTasks() {
+            try {
+                document.getElementById('loading').classList.remove('hidden');
+                const response = await apiRequest('/api/tasks?limit=100');
+                const data = await response.json();
+                allTasks = data.tasks;
+                displayTasks(allTasks);
+                updateStats(allTasks);
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        async function loadUsers() {
+            if (!currentUser.isAdmin) return;
+            
+            try {
+                const response = await apiRequest('/api/admin/users');
+                const data = await response.json();
+                allUsers = data.users;
+                displayUsers(allUsers);
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function displayTasks(tasks) {
+            const grid = document.getElementById('tasksGrid');
+            
+            if (tasks.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-gray-500 text-lg">No tasks found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = tasks.map(task => createTaskCard(task)).join('');
+        }
+
+        function createTaskCard(task) {
+            const createdBy = task.created_by ? task.created_by.name : 'Unknown';
+            const mediaCount = task.media ? task.media.length : 0;
+            const assigneeNames = task.assignees ? task.assignees.map(a => a.name).join(', ') : 'Unassigned';
+            
+            return `
+                <div class="task-card glassmorphism rounded-xl overflow-hidden cursor-pointer" onclick="openTaskModal('${task.uid}')">
+                    <div class="p-6">
+                        <!-- Header -->
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <div class="text-sm text-gray-500 mb-1">Created by: ${createdBy}</div>
+                                <h3 class="text-lg font-semibold text-gray-900 line-clamp-2">${task.title}</h3>
+                                <p class="text-sm text-gray-600 mt-1">UID: ${task.uid}</p>
+                            </div>
+                            <span class="status-${task.status} text-white text-xs px-3 py-1 rounded-full font-medium">
+                                ${task.status.replace('_', ' ').toUpperCase()}
+                            </span>
+                        </div>
+
+                        <!-- Description -->
+                        <p class="text-gray-700 text-sm mb-4 line-clamp-3">${task.description}</p>
+
+                        <!-- Media Preview -->
+                        ${mediaCount > 0 ? `
+                            <div class="mb-4">
+                                <div class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                    </svg>
+                                    <span>${mediaCount} file(s)</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    ${task.media.slice(0, 3).map(media => createMediaPreview(media, task.uid)).join('')}
+                                    ${mediaCount > 3 ? `<div class="bg-gray-100 rounded-lg flex items-center justify-center text-gray-500 text-sm">+${mediaCount - 3}</div>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Footer -->
+                        <div class="flex items-center justify-between text-sm text-gray-600">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                    </svg>
+                                    <span class="truncate">${assigneeNames}</span>
+                                </div>
+                            </div>
+                            <div class="text-xs">
+                                ${new Date(task.timestamps.created_at).toLocaleDateString()}
+                            </div>
+                        </div>
+
+                        <!-- Admin Actions -->
+                        ${currentUser && currentUser.isAdmin ? `
+                            <div class="mt-4 pt-4 border-t border-white/20 flex space-x-2">
+                                <button onclick="editTask(event, '${task.uid}')" class="flex-1 bg-blue-500 text-white py-2 px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                                    Edit
+                                </button>
+                                <button onclick="deleteTask(event, '${task.uid}')" class="flex-1 bg-red-500 text-white py-2 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors">
+                                    Delete
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createMediaPreview(media, taskUid) {
+            const mediaUrl = `/api/media/${taskUid}/${media.path.split('/').pop()}`;
+            
+            if (media.type === 'photo') {
+                return `<img src="${mediaUrl}" class="w-full h-16 object-cover rounded-lg" alt="Task media">`;
+            } else if (media.type === 'video') {
+                return `
+                    <div class="relative w-full h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a4.5 4.5 0 110 9H9m-4-9h4.5a4.5 4.5 0 110 9H5"/>
+                        </svg>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="w-full h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                `;
+            }
+        }
+
+        function displayUsers(users) {
+            const container = document.getElementById('usersList');
+            
+            if (users.length === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-center py-4">No users found</div>';
+                return;
+            }
+
+            container.innerHTML = users.map(user => `
+                <div class="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+                    <div>
+                        <div class="font-medium text-gray-900">${user.name}</div>
+                        <div class="text-sm text-gray-600">ID: ${user.telegram_id}</div>
+                        <div class="text-xs text-gray-500">${user.role} • ${user.active ? 'Active' : 'Blocked'}</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        ${user.role === 'admin' ? `
+                            <button onclick="demoteUser(${user.telegram_id})" class="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600">
+                                Make User
+                            </button>
+                        ` : `
+                            <button onclick="promoteUser(${user.telegram_id})" class="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600">
+                                Make Admin
+                            </button>
+                        `}
+                        <button onclick="toggleUserBlock(${user.telegram_id}, ${!user.active})" class="bg-${user.active ? 'red' : 'blue'}-500 text-white px-3 py-1 rounded text-xs hover:bg-${user.active ? 'red' : 'blue'}-600">
+                            ${user.active ? 'Block' : 'Unblock'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStats(tasks) {
+            const total = tasks.length;
+            const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+            const completed = tasks.filter(t => t.status === 'done').length;
+            const assignees = new Set(tasks.flatMap(t => t.assignees ? t.assignees.map(a => a.telegram_id) : [])).size;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('inProgressTasks').textContent = inProgress;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('totalAssignees').textContent = assignees;
+        }
+
+        function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        async function promoteUser(telegramId) {
+            try {
+                const response = await apiRequest('/api/admin/promote', {
+                    method: 'POST',
+                    body: JSON.stringify({ telegram_id: telegramId })
+                });
+
+                if (response.ok) {
+                    alert('User promoted to admin successfully');
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to promote user: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error promoting user');
+            }
+        }
+
+        async function demoteUser(telegramId) {
+            try {
+                const response = await apiRequest('/api/admin/demote', {
+                    method: 'POST',
+                    body: JSON.stringify({ telegram_id: telegramId })
+                });
+
+                if (response.ok) {
+                    alert('User demoted to regular user successfully');
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to demote user: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error demoting user');
+            }
+        }
+
+        async function toggleUserBlock(telegramId, block) {
+            try {
+                const response = await apiRequest('/api/admin/block-user', {
+                    method: 'POST',
+                    body: JSON.stringify({ telegram_id: telegramId, blocked: block })
+                });
+
+                if (response.ok) {
+                    alert(`User ${block ? 'blocked' : 'unblocked'} successfully`);
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to ${block ? 'block' : 'unblock'} user: ` + error.detail);
+                }
+            } catch (error) {
+                alert(`Error ${block ? 'blocking' : 'unblocking'} user`);
+            }
+        }
+
+        function editTask(event, uid) {
+            event.stopPropagation();
+            // TODO: Implement task editing
+            alert('Task editing feature coming soon!');
+        }
+
+        async function deleteTask(event, uid) {
+            event.stopPropagation();
+            
+            if (!confirm('Are you sure you want to delete this task? This will also delete all associated media files.')) {
+                return;
+            }
+
+            try {
+                const response = await apiRequest(`/api/tasks/${uid}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('Task deleted successfully');
+                    loadTasks();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to delete task: ' + error.detail);
+                }
+            } catch (error) {
+                alert('Error deleting task');
+            }
+        }
+
+        function openTaskModal(uid) {
+            // TODO: Implement task detail modal
+            alert('Task detail modal coming soon!');
+        }
+
+        function logout() {
+            localStorage.removeItem('auth');
+            window.location.href = '/';
+        }
+
+        // Filter functionality
+        document.getElementById('statusFilter').addEventListener('change', filterTasks);
+        document.getElementById('priorityFilter').addEventListener('change', filterTasks);
+        document.getElementById('searchInput').addEventListener('input', filterTasks);
+
+        function filterTasks() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+
+            let filteredTasks = allTasks;
+
+            if (statusFilter) {
+                filteredTasks = filteredTasks.filter(task => task.status === statusFilter);
+            }
+
+            if (priorityFilter) {
+                filteredTasks = filteredTasks.filter(task => task.priority === priorityFilter);
+            }
+
+            if (searchQuery) {
+                filteredTasks = filteredTasks.filter(task => 
+                    task.title.toLowerCase().includes(searchQuery) ||
+                    task.description.toLowerCase().includes(searchQuery) ||
+                    task.uid.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            displayTasks(filteredTasks);
+        }
+    </script>
+</body>
+</html>

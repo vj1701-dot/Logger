@@ -183,3 +183,18 @@ class GCSClient:
         except Exception as e:
             logger.error(f"Failed to get metadata for {path}: {e}")
             return None
+    
+    async def delete_blob(self, path: str) -> bool:
+        """Delete a blob from GCS"""
+        try:
+            blob = self.bucket.blob(path)
+            if blob.exists():
+                blob.delete()
+                logger.info(f"Deleted blob: {path}")
+                return True
+            else:
+                logger.warning(f"Blob does not exist: {path}")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to delete blob {path}: {e}")
+            return False

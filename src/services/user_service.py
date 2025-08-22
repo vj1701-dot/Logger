@@ -110,6 +110,10 @@ class UserService:
         user.active = True
         return await self.update_user(user)
     
+    async def get_all_users(self) -> List[User]:
+        """Get all users (alias for list_all_users)"""
+        return await self.list_all_users()
+    
     async def list_all_users(self) -> List[User]:
         """List all users"""
         try:

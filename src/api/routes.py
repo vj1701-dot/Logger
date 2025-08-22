@@ -661,3 +661,190 @@ async def promote_user_to_admin(
     except Exception as e:
         logger.error(f"Failed to promote user {promote_req.telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to promote user")
+
+@router.get("/admin/users")
+async def get_all_users(
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Get all users (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        user_service = UserService(gcs_client)
+        
+        users = await user_service.get_all_users()
+        
+        return {
+            "users": [
+                {
+                    "telegram_id": user.telegram_id,
+                    "name": user.name,
+                    "username": user.username,
+                    "role": user.role.value,
+                    "active": user.active,
+                    "created_at": user.created_at.isoformat(),
+                    "last_active": user.last_active.isoformat() if user.last_active else None
+                }
+                for user in users
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get users")
+
+class BlockUserRequest(BaseModel):
+    telegram_id: int
+    blocked: bool
+
+@router.post("/admin/block-user")
+async def block_unblock_user(
+    block_req: BlockUserRequest,
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Block or unblock a user (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        user_service = UserService(gcs_client)
+        
+        # Check if user exists
+        user = await user_service.get_user(block_req.telegram_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Update user active status
+        if block_req.blocked:
+            success = await user_service.deactivate_user(block_req.telegram_id)
+            action = "blocked"
+        else:
+            success = await user_service.activate_user(block_req.telegram_id)
+            action = "unblocked"
+        
+        if not success:
+            raise HTTPException(status_code=500, detail=f"Failed to {action} user")
+        
+        # Log admin action
+        await user_service.log_admin_action(
+            admin_user["telegram_id"],
+            "block_user" if block_req.blocked else "unblock_user",
+            str(block_req.telegram_id),
+            {"blocked": block_req.blocked}
+        )
+        
+        return {
+            "message": f"User {user.name} {action} successfully",
+            "user": {
+                "telegram_id": user.telegram_id,
+                "name": user.name,
+                "username": user.username,
+                "active": not block_req.blocked
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to block/unblock user {block_req.telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update user status")
+
+class DemoteUserRequest(BaseModel):
+    telegram_id: int
+
+@router.post("/admin/demote")
+async def demote_user_from_admin(
+    demote_req: DemoteUserRequest,
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Demote an admin to regular user (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        user_service = UserService(gcs_client)
+        
+        # Check if user exists
+        user = await user_service.get_user(demote_req.telegram_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=400, detail="User is not an admin")
+        
+        # Demote user to regular user
+        success = await user_service.update_user_role(demote_req.telegram_id, UserRole.USER)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to demote user")
+        
+        # Log admin action
+        await user_service.log_admin_action(
+            admin_user["telegram_id"],
+            "demote_user",
+            str(demote_req.telegram_id),
+            {"role": "user"}
+        )
+        
+        return {
+            "message": f"User {user.name} demoted to regular user successfully",
+            "user": {
+                "telegram_id": user.telegram_id,
+                "name": user.name,
+                "username": user.username,
+                "role": "user"
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to demote user {demote_req.telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to demote user")
+
+@router.delete("/tasks/{uid}")
+async def delete_task(
+    uid: str,
+    request: Request,
+    admin_user: Dict = Depends(require_admin)
+):
+    """Delete a task and all its media files (admin only)"""
+    try:
+        gcs_client = request.app.state.gcs_client
+        task_service = TaskService(gcs_client)
+        user_service = UserService(gcs_client)
+        
+        # Get task to check if it exists and get media files
+        task = await task_service.get_task(uid)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        # Delete all media files from GCS
+        if task.media:
+            for media in task.media:
+                try:
+                    await gcs_client.delete_blob(media.path)
+                    logger.info(f"Deleted media file: {media.path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete media file {media.path}: {e}")
+        
+        # Delete the task
+        success = await task_service.delete_task(uid)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete task")
+        
+        # Log admin action
+        await user_service.log_admin_action(
+            admin_user["telegram_id"],
+            "delete_task",
+            uid,
+            {"title": task.title, "media_count": len(task.media) if task.media else 0}
+        )
+        
+        return {
+            "message": f"Task {uid} deleted successfully",
+            "deleted_media_files": len(task.media) if task.media else 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete task {uid}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete task")

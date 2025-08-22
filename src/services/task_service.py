@@ -353,3 +353,33 @@ class TaskService:
         """Remove assignee index marker"""
         path = f"index/assignee/{telegram_id}/{uid}"
         await self.gcs.delete_index_marker(path)
+    
+    async def delete_task(self, uid: str) -> bool:
+        """Delete a task and all its indices"""
+        try:
+            # Get task first to clean up indices
+            task = await self.get_task(uid)
+            if not task:
+                return False
+            
+            # Remove from status index
+            status_index_path = f"index/status/{task.status.value}/{uid}"
+            await self.gcs.delete_index_marker(status_index_path)
+            
+            # Remove from assignee indices
+            if task.assignees:
+                for assignee in task.assignees:
+                    await self._remove_assignee_index(uid, assignee.telegram_id)
+            
+            # Delete the main task file
+            task_path = f"tasks/{uid}"
+            success = await self.gcs.delete_blob(task_path)
+            
+            if success:
+                logger.info(f"Task {uid} deleted successfully")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Failed to delete task {uid}: {e}")
+            return False
